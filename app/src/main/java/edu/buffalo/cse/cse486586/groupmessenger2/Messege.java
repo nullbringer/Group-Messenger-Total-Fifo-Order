@@ -8,12 +8,14 @@ public class Messege implements Comparable<Messege>{
     String content;
     boolean isDeliverable;
     int source;
+    int origin;
 
-    public Messege(int sequence, String content, boolean isDeliverable, int source) {
+    public Messege(int sequence, String content, boolean isDeliverable, int source, int origin) {
         this.sequence = sequence;
         this.content = content;
         this.isDeliverable = isDeliverable;
         this.source = source;
+        this.origin = origin;
     }
 
     public int getSequence() {
@@ -48,6 +50,14 @@ public class Messege implements Comparable<Messege>{
         this.source = source;
     }
 
+    public int getOrigin() {
+        return origin;
+    }
+
+    public void setOrigin(int origin) {
+        this.origin = origin;
+    }
+
     @Override
     public int compareTo(Messege another) {
 
@@ -67,9 +77,9 @@ public class Messege implements Comparable<Messege>{
                 ", content='" + content + '\'' +
                 ", isDeliverable=" + isDeliverable +
                 ", source=" + source +
+                ", origin=" + origin +
                 '}';
     }
-
 
     @Override
     public boolean equals(Object o) {
@@ -81,6 +91,7 @@ public class Messege implements Comparable<Messege>{
         Messege messege = (Messege) o;
         return isDeliverable == messege.isDeliverable &&
                 source == messege.source &&
+                origin == messege.origin &&
                 Objects.equals(content, messege.content);
     }
 

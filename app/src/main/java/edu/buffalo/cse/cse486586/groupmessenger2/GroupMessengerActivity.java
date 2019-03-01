@@ -1,10 +1,8 @@
 package edu.buffalo.cse.cse486586.groupmessenger2;
 
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
-import android.nfc.Tag;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
@@ -13,7 +11,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.TabHost;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
@@ -24,8 +21,6 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -46,8 +41,11 @@ public class GroupMessengerActivity extends Activity {
 
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
-    private static final String REMOTE_PORT [] = { "11108",  "11112", "11116", "11120", "11124"};
+    private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
+    private static Map<Integer,Integer> proposalCounter = new TreeMap<Integer, Integer>();
+
     private static final String SEPARATOR = "##";
+    private static Integer MY_PORT;
 
     private Queue<Messege> messegeQueue = new PriorityQueue<Messege>();
 
@@ -76,7 +74,7 @@ public class GroupMessengerActivity extends Activity {
 
         TelephonyManager tel = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
         String portStr = tel.getLine1Number().substring(tel.getLine1Number().length() - 4);
-        final String myPort = String.valueOf((Integer.parseInt(portStr) * 2));
+        MY_PORT = (Integer.parseInt(portStr) * 2);
 
 
         try {
@@ -104,7 +102,7 @@ public class GroupMessengerActivity extends Activity {
                     editText.setText(""); // This is one way to reset the input box.
 
 
-                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg, myPort);
+                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg, String.valueOf(REMOTE_PORT.length));
 
                     Log.e(TAG,msg);
 
@@ -169,11 +167,11 @@ public class GroupMessengerActivity extends Activity {
             Log.d(TAG,"msg recieved::::" + strings[0].trim());
 
 
-//            msg format:    sequence##content##isDeliverable##source
+//            msg format:    sequence##content##isDeliverable##source##origin
 
             String strReceived [] = strings[0].trim().split(SEPARATOR);
 
-            int sequence;
+            int sequence = -1;
 
             if(strReceived[0]!=null && strReceived[0].length()>0){
                 sequence = Integer.parseInt(strReceived[0]);
@@ -182,30 +180,66 @@ public class GroupMessengerActivity extends Activity {
             String content = strReceived[1];
             boolean isDeliverable = strReceived[2].equals("1")?true:false;
             int source = Integer.parseInt(strReceived[3]);
+            int origin = Integer.parseInt(strReceived[4]);
 
             Messege msg;
 
             if(!isDeliverable){
-                // create proposal
 
-                sequence = clientSeqId.getAndIncrement();
-                msg = new Messege(sequence, content, isDeliverable, source);
+                // If NOT ready for delivery
 
-                //TODO: multicast to source
+                if(sequence == -1) {
+
+                    // If NO sequence found, we need to send proposals
+
+                    sequence = clientSeqId.getAndIncrement();
+                    msg = new Messege(sequence, content, isDeliverable, MY_PORT, origin);
+
+
+                    new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
+
+                } else{
+
+                    //If sequence found, but not ready for delivery. i.e: this is a returned proposal
+                    // check source and origin, count proposals, select highest
+                    // prepare msg for delivery and let everyone know
+
+                    //TODO: evaluate proposals
+
+                    if(origin == MY_PORT){
+
+                        proposalCounter
+
+                    }
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
 
 
             } else {
                 /* remove and queue again with agreed sequence id
                 ready for delivery */
 
-                msg = new Messege(sequence, content, false, source);
+                msg = new Messege(sequence, content, false, source, origin);
                 messegeQueue.remove();
 
-                msg = new Messege(sequence, content, isDeliverable, source);
+                msg = new Messege(sequence, content, isDeliverable, source, origin);
 
 
             }
 
+            // Add this messege to Priority Queue
             messegeQueue.add(msg);
 
 
@@ -273,20 +307,22 @@ public class GroupMessengerActivity extends Activity {
         @Override
         protected Void doInBackground(String... msgs) {
 
-            String myPort = msgs[1];
+            int noOfRemotePorts = Integer.parseInt(msgs[1]);
+
 
             try {
 
-                for (int z=0; z<5; z++) {
+                for (int z=0; z<noOfRemotePorts; z++) {
 
                     Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
-                            Integer.parseInt(REMOTE_PORT[z]));
+                            REMOTE_PORT[z]);
 
-//                    msg format:    sequence##content##isDeliverable##source
+                    // asking for proposals from other nodes
+                    // messege body: no sequence ## content ## false deliverable (0) ## source (my port) ## origin
 
 
                     String msgToSend = "" + SEPARATOR + msgs[0] +
-                            SEPARATOR + "0" + myPort;
+                            SEPARATOR + "0" + SEPARATOR + MY_PORT + SEPARATOR + MY_PORT;
 
 
                     DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
@@ -308,33 +344,38 @@ public class GroupMessengerActivity extends Activity {
             return null;
         }
     }
-
-    private class ClientTaskForSpecificTarget extends AsyncTask<String, Void, Void> {
+// TODO: change class to suit speecific target
+    private class ClientTaskForSpecificTarget extends AsyncTask<Messege, Void, Void> {
 
         @Override
-        protected Void doInBackground(String... msgs) {
+        protected Void doInBackground(Messege... msgs) {
 
-            String myPort = msgs[1];
+            Messege msg = msgs[0];
+
+
 
             try {
 
                 String currentSequenceId = String.valueOf(clientSeqId.getAndIncrement());
-                for (int z=0; z<5; z++) {
-
-                    Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
-                            Integer.parseInt(REMOTE_PORT[z]));
 
 
-                    String msgToSend = myPort + "::" + currentSequenceId + "::" + msgs[0];
+                Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
+                        Integer.parseInt(MY_PORT));
 
-                    DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+//                msg format:    sequence##content##isDeliverable##source##origin
 
-                    dataOutputStream.writeBytes(msgToSend);
-                    dataOutputStream.flush();
+                String msgToSend = msg.getSequence() + SEPARATOR + msg.getContent() +
+                        SEPARATOR + msg.isDeliverable + SEPARATOR + msg.getSource() +
+                        SEPARATOR + msg.getOrigin();
 
-                    socket.close();
-                    dataOutputStream.close();
-                }
+                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+
+                dataOutputStream.writeBytes(msgToSend);
+                dataOutputStream.flush();
+
+                socket.close();
+                dataOutputStream.close();
+
 
 
             } catch (UnknownHostException e) {
