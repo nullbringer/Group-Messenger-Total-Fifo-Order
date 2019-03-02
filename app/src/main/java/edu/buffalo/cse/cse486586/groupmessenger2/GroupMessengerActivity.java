@@ -1,6 +1,7 @@
 package edu.buffalo.cse.cse486586.groupmessenger2;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -22,6 +23,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -43,10 +45,11 @@ public class GroupMessengerActivity extends Activity {
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
     private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
-    private static TreeMap<Integer,Integer> proposalCounter = new TreeMap<Integer, Integer>();
+    private static Map<Integer,Integer> proposalCounter = new HashMap<Integer, Integer>();
 
     private static final String SEPARATOR = "##";
     private static Integer MY_PORT;
+    TextView tv;
 
     private Queue<Messege> messegeQueue = new PriorityQueue<Messege>();
 
@@ -61,7 +64,7 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-        TextView tv = (TextView) findViewById(R.id.textView1);
+        tv = (TextView) findViewById(R.id.textView1);
         tv.setMovementMethod(new ScrollingMovementMethod());
         
         /*
@@ -119,6 +122,76 @@ public class GroupMessengerActivity extends Activity {
 
             }
         });
+
+
+
+//        https://stackoverflow.com/questions/13100196/making-a-interval-timer-in-java-android
+
+//        final Handler handler = new Handler();
+//        handler.postDelayed(new Runnable()
+//        {
+//
+//
+//            @Override
+//            public void run()
+//            {
+//                // do stuff then
+//                // can call h again after work!
+//
+//                Log.d("TimerExample", "Going for... " + time);
+//
+//
+//                handler.postDelayed(this, 1000);
+//            }
+//        }, 1000);
+
+
+//        https://stackoverflow.com/a/10207775
+
+        final Handler handler = new Handler();
+
+
+        Runnable runnable = new Runnable() {
+
+            @Override
+            public void run() {
+                try{
+
+//                    Log.d(TAG, "checking for deliverables");
+
+                    Messege topMessege = messegeQueue.peek();
+
+                    if(topMessege.isDeliverable()){
+
+                        topMessege = messegeQueue.poll();
+
+                        ContentValues mContentValues = new ContentValues();
+
+                        mContentValues.put(KEY_FIELD, topMessege.getSequence());
+                        mContentValues.put(VALUE_FIELD, topMessege.getContent());
+
+                        getContentResolver().insert(mUri, mContentValues);
+
+                        tv.append(topMessege.getContent()+ "\n");
+
+
+
+                    }
+
+
+
+                }
+                catch (Exception e) {
+                    // TODO: handle exception
+                }
+                finally{
+                    handler.postDelayed(this, 1000);
+                }
+            }
+        };
+
+        handler.post(runnable);
+
     }
 
     @Override
@@ -213,17 +286,24 @@ public class GroupMessengerActivity extends Activity {
                     // check source and origin, count proposals, select highest
                     // prepare msg for delivery and multicast to eveyone
 
-                    //TODO: evaluate proposals
+                    //TODO: propercounter key implemntation is wrong
 
                     if(origin == MY_PORT){
 
-                        proposalCounter.put(sequence, source);
+                        proposalCounter.put(source, sequence);
 
                         if(proposalCounter.size() == REMOTE_PORT.length){
 
                             //choose highest and let others know to make it depliverable.
 
-                            int highestProposedSequence = proposalCounter.firstKey();
+                            int highestProposedSequence = 0;
+
+                            for (Integer value : proposalCounter.values()) {
+
+                                highestProposedSequence = value>highestProposedSequence?value:highestProposedSequence;
+                            }
+
+
 
                             Messege msg = new Messege(highestProposedSequence, content, true, MY_PORT, origin);
 
@@ -420,15 +500,6 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
-    Handler handler = new Handler();
-    private Runnable deliverReadyMesseges = new Runnable () {
-        public void run() {
-            // scheduled another events to be in 500ms later
-            handler.postDelayed(deliverReadyMesseges, 1500);
-            System.out.println("ran..");
-            Log.d(TAG, "Beating...");
 
-        }
-    };
 
 }
