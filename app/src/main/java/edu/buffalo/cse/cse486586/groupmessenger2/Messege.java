@@ -4,11 +4,13 @@ import java.util.Objects;
 
 public class Messege implements Comparable<Messege>{
 
-    int sequence;
-    String content;
-    boolean isDeliverable;
-    int source;
-    int origin;
+    private int sequence;
+    private String content;
+    private boolean isDeliverable;
+    private int source;
+    private int origin;
+// TODO: can timestamp work to implement equals without sequence? and FIFO ordering
+//    private int timestamp;
 
     public Messege(int sequence, String content, boolean isDeliverable, int source, int origin) {
         this.sequence = sequence;
@@ -60,6 +62,8 @@ public class Messege implements Comparable<Messege>{
 
     @Override
     public int compareTo(Messege another) {
+
+        //TODO: check priority: higher or lower
 
         int result = another.sequence-another.sequence;
 

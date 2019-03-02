@@ -5,6 +5,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.telephony.TelephonyManager;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -42,7 +43,7 @@ public class GroupMessengerActivity extends Activity {
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
     private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
-    private static Map<Integer,Integer> proposalCounter = new TreeMap<Integer, Integer>();
+    private static TreeMap<Integer,Integer> proposalCounter = new TreeMap<Integer, Integer>();
 
     private static final String SEPARATOR = "##";
     private static Integer MY_PORT;
@@ -77,6 +78,7 @@ public class GroupMessengerActivity extends Activity {
         MY_PORT = (Integer.parseInt(portStr) * 2);
 
 
+
         try {
 
             ServerSocket serverSocket = new ServerSocket(SERVER_PORT);
@@ -97,12 +99,16 @@ public class GroupMessengerActivity extends Activity {
 
                 if(msg!= null && msg.length()>0){
 
-                    msg = msg  + "\n";
+//                    msg = msg  + "\n";
 
                     editText.setText(""); // This is one way to reset the input box.
 
+                    // messege body: no sequence##content##false deliverable##source (my port)##origin (my port)
 
-                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg, String.valueOf(REMOTE_PORT.length));
+                    Messege messege = new Messege(-1, msg,false, MY_PORT, MY_PORT);
+
+
+                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, messege);
 
                     Log.e(TAG,msg);
 
@@ -164,7 +170,7 @@ public class GroupMessengerActivity extends Activity {
              * The following code displays what is received in doInBackground().
              */
 
-            Log.d(TAG,"msg recieved::::" + strings[0].trim());
+//            Log.d(TAG,"msg recieved::::" + strings[0].trim());
 
 
 //            msg format:    sequence##content##isDeliverable##source##origin
@@ -182,48 +188,58 @@ public class GroupMessengerActivity extends Activity {
             int source = Integer.parseInt(strReceived[3]);
             int origin = Integer.parseInt(strReceived[4]);
 
-            Messege msg;
-
             if(!isDeliverable){
 
                 // If NOT ready for delivery
 
                 if(sequence == -1) {
 
-                    // If NO sequence found, we need to send proposals
+                    // If NO sequence found, we need to send proposals to origin
 
                     sequence = clientSeqId.getAndIncrement();
-                    msg = new Messege(sequence, content, isDeliverable, MY_PORT, origin);
+                    Messege msg = new Messege(sequence, content, isDeliverable, MY_PORT, origin);
+
+                    Log.d(TAG,"Proposal:: " + msg.toString());
 
 
                     new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
+
+                    // Add this messege to Priority Queue
+                    messegeQueue.add(msg);
 
                 } else{
 
                     //If sequence found, but not ready for delivery. i.e: this is a returned proposal
                     // check source and origin, count proposals, select highest
-                    // prepare msg for delivery and let everyone know
+                    // prepare msg for delivery and multicast to eveyone
 
                     //TODO: evaluate proposals
 
                     if(origin == MY_PORT){
 
-                        proposalCounter
+                        proposalCounter.put(sequence, source);
+
+                        if(proposalCounter.size() == REMOTE_PORT.length){
+
+                            //choose highest and let others know to make it depliverable.
+
+                            int highestProposedSequence = proposalCounter.firstKey();
+
+                            Messege msg = new Messege(highestProposedSequence, content, true, MY_PORT, origin);
+
+                            Log.d(TAG,"CHOSEN:: " + msg.toString());
+
+                            new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
+
+                            proposalCounter = new TreeMap<Integer, Integer>();
+
+
+                        }
 
                     }
 
 
-
-
-
-
                 }
-
-
-
-
-
-
 
 
 
@@ -231,16 +247,20 @@ public class GroupMessengerActivity extends Activity {
                 /* remove and queue again with agreed sequence id
                 ready for delivery */
 
-                msg = new Messege(sequence, content, false, source, origin);
+                Messege msg = new Messege(sequence, content, false, source, origin);
                 messegeQueue.remove();
 
                 msg = new Messege(sequence, content, isDeliverable, source, origin);
 
+                // Add this messege to Priority Queue
+                messegeQueue.add(msg);
+
+                Log.d(TAG,"ADdeDD** " + msg.toString());
+
 
             }
 
-            // Add this messege to Priority Queue
-            messegeQueue.add(msg);
+
 
 
 
@@ -302,12 +322,14 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
-    private class ClientTask extends AsyncTask<String, Void, Void> {
+    private class ClientTask extends AsyncTask<Messege, Void, Void> {
 
         @Override
-        protected Void doInBackground(String... msgs) {
+        protected Void doInBackground(Messege... msgs) {
 
-            int noOfRemotePorts = Integer.parseInt(msgs[1]);
+            int noOfRemotePorts = REMOTE_PORT.length;
+
+            Messege msg = msgs[0];
 
 
             try {
@@ -317,12 +339,13 @@ public class GroupMessengerActivity extends Activity {
                     Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                             REMOTE_PORT[z]);
 
-                    // asking for proposals from other nodes
-                    // messege body: no sequence ## content ## false deliverable (0) ## source (my port) ## origin
 
 
-                    String msgToSend = "" + SEPARATOR + msgs[0] +
-                            SEPARATOR + "0" + SEPARATOR + MY_PORT + SEPARATOR + MY_PORT;
+                    String deliveryStatus = msg.isDeliverable()?"1":"0";
+
+                    String msgToSend = String.valueOf(msg.getSequence()) + SEPARATOR + msg.getContent() +
+                            SEPARATOR + deliveryStatus + SEPARATOR + String.valueOf(msg.getSource()) +
+                            SEPARATOR + String.valueOf(msg.getOrigin());
 
 
                     DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
@@ -356,17 +379,18 @@ public class GroupMessengerActivity extends Activity {
 
             try {
 
-                String currentSequenceId = String.valueOf(clientSeqId.getAndIncrement());
 
 
                 Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
-                        Integer.parseInt(MY_PORT));
+                        msg.getOrigin());
 
 //                msg format:    sequence##content##isDeliverable##source##origin
 
-                String msgToSend = msg.getSequence() + SEPARATOR + msg.getContent() +
-                        SEPARATOR + msg.isDeliverable + SEPARATOR + msg.getSource() +
-                        SEPARATOR + msg.getOrigin();
+                String deliveryStatus = msg.isDeliverable()?"1":"0";
+
+                String msgToSend = String.valueOf(msg.getSequence()) + SEPARATOR + msg.getContent() +
+                        SEPARATOR + deliveryStatus + SEPARATOR + String.valueOf(msg.getSource()) +
+                        SEPARATOR + String.valueOf(msg.getOrigin());
 
                 DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
@@ -394,5 +418,17 @@ public class GroupMessengerActivity extends Activity {
         uriBuilder.scheme(scheme);
         return uriBuilder.build();
     }
+
+
+    Handler handler = new Handler();
+    private Runnable deliverReadyMesseges = new Runnable () {
+        public void run() {
+            // scheduled another events to be in 500ms later
+            handler.postDelayed(deliverReadyMesseges, 1500);
+            System.out.println("ran..");
+            Log.d(TAG, "Beating...");
+
+        }
+    };
 
 }
