@@ -6,37 +6,34 @@
                 {
                     "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values/styles.xml",
                     "from": {
-                        "startLines": "6,15",
-                        "startColumns": "4,4",
-                        "startOffsets": "186,510",
-                        "endLines": "12,17",
-                        "endColumns": "12,12",
-                        "endOffsets": "472,665"
+                        "startLines": "-1,-1",
+                        "startColumns": "-1,-1",
+                        "startOffsets": "-1,-1"
                     },
                     "to": {
-                        "startLines": "9,16",
+                        "startLines": "14,17",
                         "startColumns": "4,4",
-                        "startOffsets": "403,694",
-                        "endLines": "15,18",
+                        "startOffsets": "623,706",
+                        "endLines": "16,19",
                         "endColumns": "12,12",
-                        "endOffsets": "689,849"
+                        "endOffsets": "701,773"
                     }
                 },
                 {
                     "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values/strings.xml",
                     "from": {
-                        "startLines": "3,6,5,7,8,9,4",
-                        "startColumns": "4,4,4,4,4,4,4",
-                        "startOffsets": "56,205,160,252,299,346,109",
-                        "endColumns": "52,46,44,46,46,57,50",
-                        "endOffsets": "104,247,200,294,341,399,155"
+                        "startLines": "-1,-1,-1,-1,-1,10,11,12,13,14,-1,-1",
+                        "startColumns": "-1,-1,-1,-1,-1,4,4,4,4,4,-1,-1",
+                        "startOffsets": "-1,-1,-1,-1,-1,404,448,492,536,580,-1,-1",
+                        "endColumns": "-1,-1,-1,-1,-1,43,43,43,43,43,-1,-1",
+                        "endOffsets": "-1,-1,-1,-1,-1,443,487,531,575,619,-1,-1"
                     },
                     "to": {
-                        "startLines": "2,3,4,5,6,7,8",
-                        "startColumns": "4,4,4,4,4,4,4",
-                        "startOffsets": "55,108,155,200,247,294,352",
-                        "endColumns": "52,46,44,46,46,57,50",
-                        "endOffsets": "103,150,195,242,289,347,398"
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,108,155,200,247,294,338,382,426,470,514,572",
+                        "endColumns": "52,46,44,46,46,43,43,43,43,43,57,50",
+                        "endOffsets": "103,150,195,242,289,333,377,421,465,509,567,618"
                     }
                 }
             ]

@@ -3,11 +3,13 @@ package edu.buffalo.cse.cse486586.groupmessenger2;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.telephony.TelephonyManager;
+import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.Menu;
@@ -61,6 +63,7 @@ public class GroupMessengerActivity extends Activity {
         setContentView(R.layout.activity_group_messenger);
 
         mUri = buildUri("content", "edu.buffalo.cse.cse486586.groupmessenger2.provider");
+
 
 
 
@@ -125,26 +128,6 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-//        https://stackoverflow.com/questions/13100196/making-a-interval-timer-in-java-android
-
-//        final Handler handler = new Handler();
-//        handler.postDelayed(new Runnable()
-//        {
-//
-//
-//            @Override
-//            public void run()
-//            {
-//                // do stuff then
-//                // can call h again after work!
-//
-//                Log.d("TimerExample", "Going for... " + time);
-//
-//
-//                handler.postDelayed(this, 1000);
-//            }
-//        }, 1000);
-
 
 //        https://stackoverflow.com/a/10207775
 
@@ -172,7 +155,15 @@ public class GroupMessengerActivity extends Activity {
 
                         getContentResolver().insert(mUri, mContentValues);
 
-                        tv.append(topMessege.getContent()+ "\n");
+
+
+
+                        String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
+
+
+                        tv.append(Html.fromHtml("<font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
+                        tv.append("\n");
+
 
 
 
@@ -272,7 +263,7 @@ public class GroupMessengerActivity extends Activity {
                     sequence = clientSeqId.getAndIncrement();
                     Messege msg = new Messege(sequence, content, isDeliverable, MY_PORT, origin);
 
-                    Log.d(TAG,"Proposal:: " + msg.toString());
+//                    Log.d(TAG,"Proposal:: " + msg.toString());
 
 
                     new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
@@ -286,7 +277,7 @@ public class GroupMessengerActivity extends Activity {
                     // check source and origin, count proposals, select highest
                     // prepare msg for delivery and multicast to eveyone
 
-                    //TODO: propercounter key implemntation is wrong
+
 
                     if(origin == MY_PORT){
 

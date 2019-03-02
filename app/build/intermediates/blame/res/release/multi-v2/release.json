@@ -1,0 +1,90 @@
+{
+    "logs": [
+        {
+            "outputFile": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/build/intermediates/res/merged/release/values-v11_values-v11.arsc.flat",
+            "map": [
+                {
+                    "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values-v11/styles.xml",
+                    "from": {
+                        "startLines": "6",
+                        "startColumns": "4",
+                        "startOffsets": "177",
+                        "endLines": "8",
+                        "endColumns": "12",
+                        "endOffsets": "309"
+                    },
+                    "to": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "4",
+                        "endColumns": "12",
+                        "endOffsets": "187"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/build/intermediates/res/merged/release/values_values.arsc.flat",
+            "map": [
+                {
+                    "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values/styles.xml",
+                    "from": {
+                        "startLines": "-1,-1",
+                        "startColumns": "-1,-1",
+                        "startOffsets": "-1,-1"
+                    },
+                    "to": {
+                        "startLines": "14,17",
+                        "startColumns": "4,4",
+                        "startOffsets": "623,706",
+                        "endLines": "16,19",
+                        "endColumns": "12,12",
+                        "endOffsets": "701,773"
+                    }
+                },
+                {
+                    "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values/strings.xml",
+                    "from": {
+                        "startLines": "-1,-1,-1,-1,-1,10,11,12,13,14,-1,-1",
+                        "startColumns": "-1,-1,-1,-1,-1,4,4,4,4,4,-1,-1",
+                        "startOffsets": "-1,-1,-1,-1,-1,404,448,492,536,580,-1,-1",
+                        "endColumns": "-1,-1,-1,-1,-1,43,43,43,43,43,-1,-1",
+                        "endOffsets": "-1,-1,-1,-1,-1,443,487,531,575,619,-1,-1"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,108,155,200,247,294,338,382,426,470,514,572",
+                        "endColumns": "52,46,44,46,46,43,43,43,43,43,57,50",
+                        "endOffsets": "103,150,195,242,289,333,377,421,465,509,567,618"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/build/intermediates/res/merged/release/values-v14_values-v14.arsc.flat",
+            "map": [
+                {
+                    "source": "/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/src/main/res/values-v14/styles.xml",
+                    "from": {
+                        "startLines": "7",
+                        "startColumns": "4",
+                        "startOffsets": "220",
+                        "endLines": "9",
+                        "endColumns": "12",
+                        "endOffsets": "366"
+                    },
+                    "to": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "4",
+                        "endColumns": "12",
+                        "endOffsets": "201"
+                    }
+                }
+            ]
+        }
+    ]
+}

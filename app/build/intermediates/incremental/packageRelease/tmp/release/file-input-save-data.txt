@@ -1,0 +1,7 @@
+#Internal package file, do not edit.
+#Sat Mar 02 16:26:13 EST 2019
+0.baseType=DIRECTORY
+0.base=/Users/amlan/Documents/codebase/github/UB_Courses/CSE_586_Distributed_Systems/PA2_B/GroupMessenger2/app/build/intermediates/dex/release/mergeDexRelease/out
+0.path=classes.dex
+0.set=DEX
+count=1
