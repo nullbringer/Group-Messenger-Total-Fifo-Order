@@ -161,7 +161,7 @@ public class GroupMessengerActivity extends Activity {
                         String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
 
 
-                        tv.append(Html.fromHtml("<font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
+                        tv.append(Html.fromHtml(topMessege.getSequence()+ "*"+ topMessege.getOrigin() +"::: <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
                         tv.append("\n");
 
 
@@ -298,7 +298,7 @@ public class GroupMessengerActivity extends Activity {
 
                             Messege msg = new Messege(highestProposedSequence, content, true, MY_PORT, origin);
 
-                            Log.d(TAG,"CHOSEN:: " + msg.toString());
+                            Log.d(TAG,"AGREED And TRANSMITTED:: " + msg.toString());
 
                             new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
 
@@ -326,7 +326,7 @@ public class GroupMessengerActivity extends Activity {
                 // Add this messege to Priority Queue
                 messegeQueue.add(msg);
 
-                Log.d(TAG,"ADdeDD** " + msg.toString());
+                Log.d(TAG,"QUEUED** " + msg.toString());
 
 
             }
@@ -438,7 +438,7 @@ public class GroupMessengerActivity extends Activity {
             return null;
         }
     }
-// TODO: change class to suit speecific target
+
     private class ClientTaskForSpecificTarget extends AsyncTask<Messege, Void, Void> {
 
         @Override

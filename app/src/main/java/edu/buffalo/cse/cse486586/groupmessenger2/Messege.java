@@ -65,10 +65,11 @@ public class Messege implements Comparable<Messege>{
 
         //TODO: check priority: higher or lower
 
-        int result = another.sequence-another.sequence;
+
+        int result = Integer.compare(this.sequence, another.sequence);
 
         if(result == 0){
-            result = this.source - another.source;
+            result = Integer.compare(this.source, another.source);
         }
 
         return result;
@@ -88,7 +89,7 @@ public class Messege implements Comparable<Messege>{
     @Override
     public boolean equals(Object o) {
 
-        //TODO: removing sequence comparison, need to look for a better method
+        //TODO: removing sequence comparison, need to look for a better method, may be timestamp
 
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
