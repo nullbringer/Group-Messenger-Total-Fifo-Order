@@ -20,6 +20,11 @@ public class Messege implements Comparable<Messege>{
         this.origin = origin;
     }
 
+    public Messege(Messege msg) {
+
+        this(msg.getSequence(), msg.getContent(), msg.isDeliverable(), msg.getSource(), msg.getOrigin());
+    }
+
     public int getSequence() {
         return sequence;
     }
@@ -84,6 +89,18 @@ public class Messege implements Comparable<Messege>{
                 ", source=" + source +
                 ", origin=" + origin +
                 '}';
+    }
+
+
+    public String createPacket(String separator){
+
+
+        String deliveryStatus = isDeliverable()?"1":"0";
+
+        return String.valueOf(getSequence()) + separator + getContent() +
+                separator + deliveryStatus + separator + String.valueOf(getSource()) +
+                separator + String.valueOf(getOrigin());
+
     }
 
     @Override

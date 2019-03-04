@@ -146,6 +146,8 @@ public class GroupMessengerActivity extends Activity {
 
                     if(topMessege.isDeliverable()){
 
+                        Log.d(TAG, "POLLED::"+ topMessege.toString());
+
                         topMessege = messegeQueue.poll();
 
                         ContentValues mContentValues = new ContentValues();
@@ -155,7 +157,7 @@ public class GroupMessengerActivity extends Activity {
 
                         getContentResolver().insert(mUri, mContentValues);
 
-
+                        //TODO: same key can overwrite messege
 
 
                         String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
@@ -261,15 +263,15 @@ public class GroupMessengerActivity extends Activity {
                     // If NO sequence found, we need to send proposals to origin
 
                     sequence = clientSeqId.getAndIncrement();
-                    Messege msg = new Messege(sequence, content, isDeliverable, MY_PORT, origin);
+                    Messege msg = new Messege(sequence, content, isDeliverable, source, origin);
 
-//                    Log.d(TAG,"Proposal:: " + msg.toString());
+                    // Add this messege to Priority Queue
+                    messegeQueue.add(msg);
 
 
                     new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
 
-                    // Add this messege to Priority Queue
-                    messegeQueue.add(msg);
+
 
                 } else{
 
@@ -296,7 +298,7 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-                            Messege msg = new Messege(highestProposedSequence, content, true, MY_PORT, origin);
+                            Messege msg = new Messege(highestProposedSequence, content, true, source, origin);
 
                             Log.d(TAG,"AGREED And TRANSMITTED:: " + msg.toString());
 
@@ -319,7 +321,7 @@ public class GroupMessengerActivity extends Activity {
                 ready for delivery */
 
                 Messege msg = new Messege(sequence, content, false, source, origin);
-                messegeQueue.remove();
+                messegeQueue.remove(msg);
 
                 msg = new Messege(sequence, content, isDeliverable, source, origin);
 
@@ -400,7 +402,7 @@ public class GroupMessengerActivity extends Activity {
 
             int noOfRemotePorts = REMOTE_PORT.length;
 
-            Messege msg = msgs[0];
+            Messege msg = new Messege(msgs[0]);
 
 
             try {
@@ -411,12 +413,8 @@ public class GroupMessengerActivity extends Activity {
                             REMOTE_PORT[z]);
 
 
-
-                    String deliveryStatus = msg.isDeliverable()?"1":"0";
-
-                    String msgToSend = String.valueOf(msg.getSequence()) + SEPARATOR + msg.getContent() +
-                            SEPARATOR + deliveryStatus + SEPARATOR + String.valueOf(msg.getSource()) +
-                            SEPARATOR + String.valueOf(msg.getOrigin());
+                    msg.setSource(MY_PORT);
+                    String msgToSend = msg.createPacket(SEPARATOR);
 
 
                     DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
@@ -444,7 +442,7 @@ public class GroupMessengerActivity extends Activity {
         @Override
         protected Void doInBackground(Messege... msgs) {
 
-            Messege msg = msgs[0];
+            Messege msg = new Messege(msgs[0]);
 
 
 
@@ -455,13 +453,8 @@ public class GroupMessengerActivity extends Activity {
                 Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                         msg.getOrigin());
 
-//                msg format:    sequence##content##isDeliverable##source##origin
-
-                String deliveryStatus = msg.isDeliverable()?"1":"0";
-
-                String msgToSend = String.valueOf(msg.getSequence()) + SEPARATOR + msg.getContent() +
-                        SEPARATOR + deliveryStatus + SEPARATOR + String.valueOf(msg.getSource()) +
-                        SEPARATOR + String.valueOf(msg.getOrigin());
+                msg.setSource(MY_PORT);
+                String msgToSend = msg.createPacket(SEPARATOR);
 
                 DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
