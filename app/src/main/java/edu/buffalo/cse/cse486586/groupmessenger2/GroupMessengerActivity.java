@@ -44,6 +44,8 @@ public class GroupMessengerActivity extends Activity {
     static final int SERVER_PORT = 10000;
     private static AtomicInteger clientSeqId = new AtomicInteger(0);
 
+    private static AtomicInteger dbSequence = new AtomicInteger(0);
+
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
     private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
@@ -146,13 +148,13 @@ public class GroupMessengerActivity extends Activity {
 
                     if(topMessege.isDeliverable()){
 
-                        Log.d(TAG, "POLLED::"+ topMessege.toString());
+//                        Log.d(TAG, "POLLED::"+ topMessege.toString());
 
                         topMessege = messegeQueue.poll();
 
                         ContentValues mContentValues = new ContentValues();
 
-                        mContentValues.put(KEY_FIELD, topMessege.getSequence());
+                        mContentValues.put(KEY_FIELD, dbSequence.getAndIncrement());
                         mContentValues.put(VALUE_FIELD, topMessege.getContent());
 
                         getContentResolver().insert(mUri, mContentValues);
@@ -163,7 +165,7 @@ public class GroupMessengerActivity extends Activity {
                         String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
 
 
-                        tv.append(Html.fromHtml(topMessege.getSequence()+ "*"+ topMessege.getOrigin() +"::: <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
+                        tv.append(Html.fromHtml(dbSequence.get() +": <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
                         tv.append("\n");
 
 
