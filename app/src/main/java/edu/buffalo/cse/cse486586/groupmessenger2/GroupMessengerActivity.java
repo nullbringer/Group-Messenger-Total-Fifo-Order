@@ -49,7 +49,7 @@ public class GroupMessengerActivity extends Activity {
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
     private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
-    private static Map<Integer,Integer> proposalCounter = new HashMap<Integer, Integer>();
+    private static TreeMap<Long, HashMap<Integer,Integer>> proposalCounter = new TreeMap<Long, HashMap<Integer, Integer>>();
 
     private static final String SEPARATOR = "##";
     private static Integer MY_PORT;
@@ -111,9 +111,8 @@ public class GroupMessengerActivity extends Activity {
 
                     editText.setText(""); // This is one way to reset the input box.
 
-                    // messege body: no sequence##content##false deliverable##source (my port)##origin (my port)
 
-                    Messege messege = new Messege(-1, msg,false, MY_PORT, MY_PORT);
+                    Messege messege = new Messege(-1, msg,false, MY_PORT, MY_PORT, System.currentTimeMillis());
 
 
                     new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, messege);
@@ -146,7 +145,7 @@ public class GroupMessengerActivity extends Activity {
 
                     Messege topMessege = messegeQueue.peek();
 
-                    if(topMessege.isDeliverable()){
+                    if(topMessege!=null && topMessege.isDeliverable()){
 
 //                        Log.d(TAG, "POLLED::"+ topMessege.toString());
 
@@ -159,8 +158,6 @@ public class GroupMessengerActivity extends Activity {
 
                         getContentResolver().insert(mUri, mContentValues);
 
-                        //TODO: same key can overwrite messege
-
 
                         String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
 
@@ -170,14 +167,12 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-
                     }
-
 
 
                 }
                 catch (Exception e) {
-                    // TODO: handle exception
+                    Log.e(TAG,"Exception in runnable!!"+e);
                 }
                 finally{
                     handler.postDelayed(this, 1000);
@@ -241,8 +236,6 @@ public class GroupMessengerActivity extends Activity {
 //            Log.d(TAG,"msg recieved::::" + strings[0].trim());
 
 
-//            msg format:    sequence##content##isDeliverable##source##origin
-
             String strReceived [] = strings[0].trim().split(SEPARATOR);
 
             int sequence = -1;
@@ -255,6 +248,7 @@ public class GroupMessengerActivity extends Activity {
             boolean isDeliverable = strReceived[2].equals("1")?true:false;
             int source = Integer.parseInt(strReceived[3]);
             int origin = Integer.parseInt(strReceived[4]);
+            long originTimestamp = Long.parseLong(strReceived[5]);
 
             if(!isDeliverable){
 
@@ -265,7 +259,7 @@ public class GroupMessengerActivity extends Activity {
                     // If NO sequence found, we need to send proposals to origin
 
                     sequence = clientSeqId.getAndIncrement();
-                    Messege msg = new Messege(sequence, content, isDeliverable, source, origin);
+                    Messege msg = new Messege(sequence, content, isDeliverable, source, origin, originTimestamp);
 
                     // Add this messege to Priority Queue
                     messegeQueue.add(msg);
@@ -285,28 +279,37 @@ public class GroupMessengerActivity extends Activity {
 
                     if(origin == MY_PORT){
 
-                        proposalCounter.put(source, sequence);
 
-                        if(proposalCounter.size() == REMOTE_PORT.length){
+                        HashMap<Integer, Integer> mp = proposalCounter.get(originTimestamp);
+
+                        if(mp == null){
+                            mp = new HashMap<Integer, Integer>();
+                        }
+
+                        mp.put(source, sequence);
+                        proposalCounter.put(originTimestamp, mp);
+
+
+                        if(proposalCounter.get(originTimestamp).size() == REMOTE_PORT.length){
 
                             //choose highest and let others know to make it depliverable.
 
                             int highestProposedSequence = 0;
 
-                            for (Integer value : proposalCounter.values()) {
+                            for (Integer value : proposalCounter.get(originTimestamp).values()) {
 
                                 highestProposedSequence = value>highestProposedSequence?value:highestProposedSequence;
                             }
 
 
 
-                            Messege msg = new Messege(highestProposedSequence, content, true, source, origin);
+                            Messege msg = new Messege(highestProposedSequence, content, true, source, origin, originTimestamp);
 
                             Log.d(TAG,"AGREED And TRANSMITTED:: " + msg.toString());
 
                             new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
 
-                            proposalCounter = new TreeMap<Integer, Integer>();
+                            proposalCounter.remove(originTimestamp);
 
 
                         }
@@ -322,10 +325,10 @@ public class GroupMessengerActivity extends Activity {
                 /* remove and queue again with agreed sequence id
                 ready for delivery */
 
-                Messege msg = new Messege(sequence, content, false, source, origin);
+                Messege msg = new Messege(sequence, content, false, source, origin, originTimestamp);
                 messegeQueue.remove(msg);
 
-                msg = new Messege(sequence, content, isDeliverable, source, origin);
+                msg = new Messege(sequence, content, isDeliverable, source, origin, originTimestamp);
 
                 // Add this messege to Priority Queue
                 messegeQueue.add(msg);
@@ -337,59 +340,6 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-
-
-
-
-
-
-
-
-
-//
-//            ContentValues mContentValues = new ContentValues();
-//
-//            mContentValues.put(KEY_FIELD, sourceSequence);
-//            mContentValues.put(VALUE_FIELD, msgReceieved);
-//
-//            getContentResolver().insert(mUri, mContentValues);
-
-
-
-
-
-
-
-
-//
-//            Cursor resultCursor = getContentResolver().query(mUri, null, key, null, null);
-//
-//            if (resultCursor == null) {
-//                Log.e(TAG, "Result null");
-//            }
-//
-//            int keyIndex = resultCursor.getColumnIndex(KEY_FIELD);
-//            int valueIndex = resultCursor.getColumnIndex(VALUE_FIELD);
-//            if (keyIndex == -1 || valueIndex == -1) {
-//                Log.e(TAG, "Wrong columns");
-//                resultCursor.close();
-//            }
-//
-//            resultCursor.moveToFirst();
-//
-//            if (!(resultCursor.isFirst() && resultCursor.isLast())) {
-//                Log.e(TAG, "Wrong number of rows");
-//                resultCursor.close();
-//            }
-//
-//
-//            String returnValue = resultCursor.getString(valueIndex);
-//
-//
-//            tv.append(returnValue+ "\n");
-//
-//
-//            resultCursor.close();
 
 
             return;
@@ -404,10 +354,12 @@ public class GroupMessengerActivity extends Activity {
 
             int noOfRemotePorts = REMOTE_PORT.length;
 
-            Messege msg = new Messege(msgs[0]);
+
 
 
             try {
+
+                Messege msg = msgs[0].clone();
 
                 for (int z=0; z<noOfRemotePorts; z++) {
 
@@ -433,6 +385,8 @@ public class GroupMessengerActivity extends Activity {
                 Log.e(TAG, "ClientTask UnknownHostException");
             } catch (IOException e) {
                 Log.e(TAG, "ClientTask socket IOException");
+            } catch (CloneNotSupportedException e){
+                Log.e(TAG, "ClientTask socket CloneNotSupportedException");
             }
 
             return null;
@@ -444,11 +398,13 @@ public class GroupMessengerActivity extends Activity {
         @Override
         protected Void doInBackground(Messege... msgs) {
 
-            Messege msg = new Messege(msgs[0]);
+
 
 
 
             try {
+
+                Messege msg = msgs[0].clone();
 
 
 
@@ -472,6 +428,8 @@ public class GroupMessengerActivity extends Activity {
                 Log.e(TAG, "ClientTask UnknownHostException");
             } catch (IOException e) {
                 Log.e(TAG, "ClientTask socket IOException");
+            } catch (CloneNotSupportedException e){
+                Log.e(TAG, "ClientTask socket CloneNotSupportedException");
             }
 
             return null;

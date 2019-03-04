@@ -2,28 +2,30 @@ package edu.buffalo.cse.cse486586.groupmessenger2;
 
 import java.util.Objects;
 
-public class Messege implements Comparable<Messege>{
+public class Messege implements Comparable<Messege>, Cloneable{
 
     private int sequence;
     private String content;
     private boolean isDeliverable;
     private int source;
     private int origin;
-// TODO: can timestamp work to implement equals without sequence? and FIFO ordering
-//    private int timestamp;
+    private long originTimestamp;
 
-    public Messege(int sequence, String content, boolean isDeliverable, int source, int origin) {
+    public Messege(int sequence, String content, boolean isDeliverable, int source, int origin, long originTimestamp) {
         this.sequence = sequence;
         this.content = content;
         this.isDeliverable = isDeliverable;
         this.source = source;
         this.origin = origin;
+        this.originTimestamp = originTimestamp;
     }
 
-    public Messege(Messege msg) {
+//    public Messege(Messege msg) {
+//
+//        this(msg.getSequence(), msg.getContent(), msg.isDeliverable(), msg.getSource(), msg.getOrigin(), msg.getOriginTimestamp());
+//    }
 
-        this(msg.getSequence(), msg.getContent(), msg.isDeliverable(), msg.getSource(), msg.getOrigin());
-    }
+
 
     public int getSequence() {
         return sequence;
@@ -65,11 +67,16 @@ public class Messege implements Comparable<Messege>{
         this.origin = origin;
     }
 
+    public long getOriginTimestamp() {
+        return originTimestamp;
+    }
+
+    public void setOriginTimestamp(long originTimestamp) {
+        this.originTimestamp = originTimestamp;
+    }
+
     @Override
     public int compareTo(Messege another) {
-
-        //TODO: check priority: higher or lower
-
 
         int result = Integer.compare(this.sequence, another.sequence);
 
@@ -88,9 +95,9 @@ public class Messege implements Comparable<Messege>{
                 ", isDeliverable=" + isDeliverable +
                 ", source=" + source +
                 ", origin=" + origin +
+                ", originTimestamp=" + originTimestamp +
                 '}';
     }
-
 
     public String createPacket(String separator){
 
@@ -99,22 +106,25 @@ public class Messege implements Comparable<Messege>{
 
         return String.valueOf(getSequence()) + separator + getContent() +
                 separator + deliveryStatus + separator + String.valueOf(getSource()) +
-                separator + String.valueOf(getOrigin());
+                separator + String.valueOf(getOrigin() + separator + String.valueOf(getOriginTimestamp()));
 
     }
 
     @Override
     public boolean equals(Object o) {
-
-        //TODO: removing sequence comparison, need to look for a better method, may be timestamp
-
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Messege messege = (Messege) o;
         return isDeliverable == messege.isDeliverable &&
                 source == messege.source &&
                 origin == messege.origin &&
+                originTimestamp == messege.originTimestamp &&
                 Objects.equals(content, messege.content);
+    }
+
+    public Messege clone() throws CloneNotSupportedException
+    {
+        return (Messege) super.clone();
     }
 
 
