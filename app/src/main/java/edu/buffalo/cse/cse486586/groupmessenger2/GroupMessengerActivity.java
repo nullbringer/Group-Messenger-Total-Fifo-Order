@@ -3,7 +3,6 @@ package edu.buffalo.cse.cse486586.groupmessenger2;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -22,13 +21,17 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -42,21 +45,24 @@ public class GroupMessengerActivity extends Activity {
 
     private static final String TAG = GroupMessengerActivity.class.getName();
     static final int SERVER_PORT = 10000;
-    private static AtomicInteger clientSeqId = new AtomicInteger(0);
 
+    private static AtomicInteger proposalSeqId = new AtomicInteger(0);
     private static AtomicInteger dbSequence = new AtomicInteger(0);
 
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
-    private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
-    private static TreeMap<Long, HashMap<Integer,Integer>> proposalCounter = new TreeMap<Long, HashMap<Integer, Integer>>();
-
     private static final String SEPARATOR = "##";
-    private static Integer MY_PORT;
-    TextView tv;
 
+//    private static final Integer REMOTE_PORT [] = { 11108,  11112, 11116, 11120, 11124};
+
+    private static Set<Integer> REMOTE_PORT = new HashSet<Integer>();
+
+
+    private static TreeMap<Long, HashMap<Integer,Integer>> proposalCounter = new TreeMap<Long, HashMap<Integer, Integer>>();
     private Queue<Messege> messegeQueue = new PriorityQueue<Messege>();
 
+    private static Integer MY_PORT;
+    TextView tv;
     private Uri mUri;
 
     @Override
@@ -65,7 +71,7 @@ public class GroupMessengerActivity extends Activity {
         setContentView(R.layout.activity_group_messenger);
 
         mUri = buildUri("content", "edu.buffalo.cse.cse486586.groupmessenger2.provider");
-
+        REMOTE_PORT.addAll(Arrays.asList(new Integer[] {11108,  11112, 11116, 11120, 11124}));
 
 
 
@@ -175,7 +181,7 @@ public class GroupMessengerActivity extends Activity {
                     Log.e(TAG,"Exception in runnable!!"+e);
                 }
                 finally{
-                    handler.postDelayed(this, 1000);
+                    handler.postDelayed(this, 500);
                 }
             }
         };
@@ -236,6 +242,8 @@ public class GroupMessengerActivity extends Activity {
 //            Log.d(TAG,"msg recieved::::" + strings[0].trim());
 
 
+            //TODO: create processpacket()
+
             String strReceived [] = strings[0].trim().split(SEPARATOR);
 
             int sequence = -1;
@@ -250,6 +258,7 @@ public class GroupMessengerActivity extends Activity {
             int origin = Integer.parseInt(strReceived[4]);
             long originTimestamp = Long.parseLong(strReceived[5]);
 
+
             if(!isDeliverable){
 
                 // If NOT ready for delivery
@@ -258,7 +267,7 @@ public class GroupMessengerActivity extends Activity {
 
                     // If NO sequence found, we need to send proposals to origin
 
-                    sequence = clientSeqId.getAndIncrement();
+                    sequence = proposalSeqId.getAndIncrement();
                     Messege msg = new Messege(sequence, content, isDeliverable, source, origin, originTimestamp);
 
                     // Add this messege to Priority Queue
@@ -289,8 +298,8 @@ public class GroupMessengerActivity extends Activity {
                         mp.put(source, sequence);
                         proposalCounter.put(originTimestamp, mp);
 
-
-                        if(proposalCounter.get(originTimestamp).size() == REMOTE_PORT.length){
+                        //TODO: treemap.firstkey() implementation, if time permits
+                        if(proposalCounter.get(originTimestamp).size() == REMOTE_PORT.size()){
 
                             //choose highest and let others know to make it depliverable.
 
@@ -352,19 +361,24 @@ public class GroupMessengerActivity extends Activity {
         @Override
         protected Void doInBackground(Messege... msgs) {
 
-            int noOfRemotePorts = REMOTE_PORT.length;
 
 
 
 
-            try {
+            for (int thisPort: REMOTE_PORT) {
 
-                Messege msg = msgs[0].clone();
+                try {
 
-                for (int z=0; z<noOfRemotePorts; z++) {
+                    Messege msg = msgs[0].clone();
 
                     Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
-                            REMOTE_PORT[z]);
+                            thisPort);
+
+                    socket.setSoTimeout(800);
+
+
+//                    Socket socket = new Socket();
+//                    socket.connect(new InetSocketAddress(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),REMOTE_PORT[z]), 1000);
 
 
                     msg.setSource(MY_PORT);
@@ -378,16 +392,25 @@ public class GroupMessengerActivity extends Activity {
 
                     socket.close();
                     dataOutputStream.close();
+
+
+
+                } catch (SocketTimeoutException e){
+                    Log.e(TAG, "SocketTimeoutException!!!!!!");
+
+                } catch (UnknownHostException e) {
+                    Log.e(TAG, "ClientTask UnknownHostException");
+
+                } catch (IOException e) {
+                    Log.e(TAG, "ClientTask socket IOException");
+
+                } catch (CloneNotSupportedException e){
+                    Log.e(TAG, "ClientTask socket CloneNotSupportedException");
                 }
-
-
-            } catch (UnknownHostException e) {
-                Log.e(TAG, "ClientTask UnknownHostException");
-            } catch (IOException e) {
-                Log.e(TAG, "ClientTask socket IOException");
-            } catch (CloneNotSupportedException e){
-                Log.e(TAG, "ClientTask socket CloneNotSupportedException");
             }
+
+
+
 
             return null;
         }
@@ -399,17 +422,19 @@ public class GroupMessengerActivity extends Activity {
         protected Void doInBackground(Messege... msgs) {
 
 
-
+            Messege msg = null;
 
 
             try {
 
-                Messege msg = msgs[0].clone();
+                msg = msgs[0].clone();
 
-
+                //TODO: socket timeout exception, remove from proposalcounter(if exists), remove from remotehost[]
 
                 Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                         msg.getOrigin());
+
+                socket.setSoTimeout(800);
 
                 msg.setSource(MY_PORT);
                 String msgToSend = msg.createPacket(SEPARATOR);
@@ -424,10 +449,15 @@ public class GroupMessengerActivity extends Activity {
 
 
 
+            } catch (SocketTimeoutException e){
+                Log.e(TAG, "SocketTimeoutException!!!!!!");
+
             } catch (UnknownHostException e) {
                 Log.e(TAG, "ClientTask UnknownHostException");
+
             } catch (IOException e) {
                 Log.e(TAG, "ClientTask socket IOException");
+
             } catch (CloneNotSupportedException e){
                 Log.e(TAG, "ClientTask socket CloneNotSupportedException");
             }
