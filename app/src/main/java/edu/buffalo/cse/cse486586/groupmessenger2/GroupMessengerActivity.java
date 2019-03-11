@@ -251,37 +251,40 @@ public class GroupMessengerActivity extends Activity {
 
             //TODO: create processpacket()
 
-            String strReceived [] = strings[0].trim().split(SEPARATOR);
-
-            int sequence = -1;
-
-            if(strReceived[0]!=null && strReceived[0].length()>0){
-                sequence = Integer.parseInt(strReceived[0]);
-            }
-
-            String content = strReceived[1];
-            boolean isDeliverable = strReceived[2].equals("1")?true:false;
-            int source = Integer.parseInt(strReceived[3]);
-            int origin = Integer.parseInt(strReceived[4]);
-            long originTimestamp = Long.parseLong(strReceived[5]);
+            Messege recievedMessege = new Messege(strings[0], SEPARATOR);
 
 
-            if(!isDeliverable){
+
+//            String strReceived [] = strings[0].trim().split(SEPARATOR);
+//
+//            int sequence = -1;
+//
+//            if(strReceived[0]!=null && strReceived[0].length()>0){
+//                sequence = Integer.parseInt(strReceived[0]);
+//            }
+//
+//            String content = strReceived[1];
+//            boolean isDeliverable = strReceived[2].equals("1")?true:false;
+//            int source = Integer.parseInt(strReceived[3]);
+//            int origin = Integer.parseInt(strReceived[4]);
+//            long originTimestamp = Long.parseLong(strReceived[5]);
+
+
+            if(!recievedMessege.isDeliverable()){
 
                 // If NOT ready for delivery
 
-                if(sequence == -1) {
+                if(recievedMessege.getSequence() == -1) {
 
                     // If NO sequence found, we need to send proposals to origin
 
-                    sequence = proposalSeqId.getAndIncrement();
-                    Messege msg = new Messege(sequence, content, isDeliverable, source, origin, originTimestamp);
+                    recievedMessege.setSequence(proposalSeqId.getAndIncrement());
 
                     // Add this messege to Priority Queue
-                    messegeQueue.add(msg);
+                    messegeQueue.add(recievedMessege);
 
 
-                    new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
+                    new ClientTaskForSpecificTarget().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, recievedMessege);
 
 
 
@@ -293,39 +296,40 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-                    if(origin == MY_PORT){
+                    if(recievedMessege.getOrigin() == MY_PORT){
 
 
-                        HashMap<Integer, Integer> mp = proposalCounter.get(originTimestamp);
+                        HashMap<Integer, Integer> mp = proposalCounter.get(recievedMessege.getOriginTimestamp());
 
                         if(mp == null){
                             mp = new HashMap<Integer, Integer>();
                         }
 
-                        mp.put(source, sequence);
-                        proposalCounter.put(originTimestamp, mp);
+                        mp.put(recievedMessege.getSource(), recievedMessege.getSequence());
+                        proposalCounter.put(recievedMessege.getOriginTimestamp(), mp);
 
                         //TODO: treemap.firstkey() implementation, if time permits
-                        if(proposalCounter.get(originTimestamp).size() == REMOTE_PORT.size()){
+                        if(proposalCounter.get(recievedMessege.getOriginTimestamp()).size() == REMOTE_PORT.size()){
 
                             //choose highest and let others know to make it depliverable.
 
                             int highestProposedSequence = 0;
 
-                            for (Integer value : proposalCounter.get(originTimestamp).values()) {
+                            for (Integer value : proposalCounter.get(recievedMessege.getOriginTimestamp()).values()) {
 
                                 highestProposedSequence = value>highestProposedSequence?value:highestProposedSequence;
                             }
 
 
+                            recievedMessege.setSequence(highestProposedSequence);
+                            recievedMessege.setDeliverable(true);
 
-                            Messege msg = new Messege(highestProposedSequence, content, true, source, origin, originTimestamp);
 
-                            Log.d(TAG,"AGREED And TRANSMITTED:: " + msg.toString());
+                            Log.d(TAG,"AGREED And TRANSMITTED:: " + recievedMessege.toString());
 
-                            new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, msg);
+                            new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, recievedMessege);
 
-                            proposalCounter.remove(originTimestamp);
+                            proposalCounter.remove(recievedMessege.getOriginTimestamp());
 
 
                         }
@@ -341,20 +345,20 @@ public class GroupMessengerActivity extends Activity {
                 /* remove and queue again with agreed sequence id
                 ready for delivery */
 
-                Messege msg = new Messege(sequence, content, false, source, origin, originTimestamp);
-                messegeQueue.remove(msg);
+                recievedMessege.setDeliverable(false);
+                messegeQueue.remove(recievedMessege);
 
-                msg = new Messege(sequence, content, isDeliverable, source, origin, originTimestamp);
+
+
 
                 // Add this messege to Priority Queue
-                messegeQueue.add(msg);
+                recievedMessege.setDeliverable(true);
+                messegeQueue.add(recievedMessege);
 
-                Log.d(TAG,"QUEUED** " + msg.toString());
+                Log.d(TAG,"QUEUED** " + recievedMessege.toString());
 
 
             }
-
-
 
 
 
@@ -369,6 +373,8 @@ public class GroupMessengerActivity extends Activity {
         protected Void doInBackground(Messege... msgs) {
 
 
+            Set<Integer> portToRemove = new HashSet<Integer>();
+
             for (int thisPort: REMOTE_PORT) {
 
                 try {
@@ -380,7 +386,7 @@ public class GroupMessengerActivity extends Activity {
                     Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                             thisPort);
 
-                    socket.setSoTimeout(10000);
+                    socket.setSoTimeout(2000);
 
                     // Send messege to target port
                     msg.setSource(MY_PORT);
@@ -392,7 +398,7 @@ public class GroupMessengerActivity extends Activity {
                     dataOutputStream.flush();
 
 
-                    //TODO: Listen for acknowledgement
+                    //Listen for acknowledgement
 
                     DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -411,17 +417,23 @@ public class GroupMessengerActivity extends Activity {
 
                 } catch (SocketTimeoutException e){
                     Log.e(TAG, "ClientTask SocketTimeoutException");
+                    portToRemove.add(thisPort);
 
                 } catch (UnknownHostException e) {
                     Log.e(TAG, "ClientTask UnknownHostException");
+                    portToRemove.add(thisPort);
 
                 } catch (IOException e) {
                     Log.e(TAG, "ClientTask socket IOException");
+                    portToRemove.add(thisPort);
 
                 } catch (CloneNotSupportedException e){
                     Log.e(TAG, "ClientTask socket CloneNotSupportedException");
                 }
             }
+
+
+            REMOTE_PORT.removeAll(portToRemove);
 
 
 
@@ -436,19 +448,22 @@ public class GroupMessengerActivity extends Activity {
         protected Void doInBackground(Messege... msgs) {
 
 
+            Messege msg = null;
+
+            Set<Integer> portToRemove = new HashSet<Integer>();
 
 
 
             try {
 
-                Messege msg = msgs[0].clone();
+                msg = msgs[0].clone();
 
                 // Create connection and set read timeout
 
                 Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                         msg.getOrigin());
 
-                socket.setSoTimeout(10000);
+                socket.setSoTimeout(2000);
 
                 // Send messege to target port
                 msg.setSource(MY_PORT);
@@ -460,7 +475,7 @@ public class GroupMessengerActivity extends Activity {
                 dataOutputStream.flush();
 
 
-                //TODO: Listen for acknowledgement
+                // Listen for acknowledgement
 
                 DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -478,16 +493,22 @@ public class GroupMessengerActivity extends Activity {
 
             } catch (SocketTimeoutException e){
                 Log.e(TAG, "SocketTimeoutException!!!!!!");
+                portToRemove.add(msg.getOrigin());
 
             } catch (UnknownHostException e) {
                 Log.e(TAG, "ClientTask UnknownHostException");
+                portToRemove.add(msg.getOrigin());
 
             } catch (IOException e) {
                 Log.e(TAG, "ClientTask socket IOException");
+                portToRemove.add(msg.getOrigin());
 
             } catch (CloneNotSupportedException e){
                 Log.e(TAG, "ClientTask socket CloneNotSupportedException");
             }
+
+
+            REMOTE_PORT.removeAll(portToRemove);
 
             return null;
         }

@@ -20,12 +20,25 @@ public class Messege implements Comparable<Messege>, Cloneable{
         this.originTimestamp = originTimestamp;
     }
 
-//    public Messege(Messege msg) {
-//
-//        this(msg.getSequence(), msg.getContent(), msg.isDeliverable(), msg.getSource(), msg.getOrigin(), msg.getOriginTimestamp());
-//    }
+    public Messege(String packet, String separator) {
 
 
+        String strReceived [] = packet.trim().split(separator);
+
+        this.sequence = -1;
+
+        if(strReceived[0]!=null && strReceived[0].length()>0){
+            this.sequence = Integer.parseInt(strReceived[0]);
+        }
+
+        this.content = strReceived[1];
+        this.isDeliverable = strReceived[2].equals("1")?true:false;
+        this.source = Integer.parseInt(strReceived[3]);
+        this.origin = Integer.parseInt(strReceived[4]);
+        this.originTimestamp = Long.parseLong(strReceived[5]);
+
+
+    }
 
     public int getSequence() {
         return sequence;
@@ -101,7 +114,6 @@ public class Messege implements Comparable<Messege>, Cloneable{
 
     public String createPacket(String separator){
 
-
         String deliveryStatus = isDeliverable()?"1":"0";
 
         return String.valueOf(getSequence()) + separator + getContent() +
@@ -109,6 +121,7 @@ public class Messege implements Comparable<Messege>, Cloneable{
                 separator + String.valueOf(getOrigin() + separator + String.valueOf(getOriginTimestamp()));
 
     }
+
 
     @Override
     public boolean equals(Object o) {
