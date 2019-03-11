@@ -17,9 +17,12 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -147,13 +150,10 @@ public class GroupMessengerActivity extends Activity {
             public void run() {
                 try{
 
-//                    Log.d(TAG, "checking for deliverables");
 
                     Messege topMessege = messegeQueue.peek();
 
                     if(topMessege!=null && topMessege.isDeliverable()){
-
-//                        Log.d(TAG, "POLLED::"+ topMessege.toString());
 
                         topMessege = messegeQueue.poll();
 
@@ -213,15 +213,22 @@ public class GroupMessengerActivity extends Activity {
 
                     Socket clientSocket = serverSocket.accept();
 
-                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
+                    String incomingMessege = dataInputStream.readUTF();
 
 
-                    String incomingMessege = bufferedReader.readLine();
+                    publishProgress(incomingMessege);
 
-                    if (incomingMessege != null) {
+                    // return acknowledgement to sender
 
-                        publishProgress(incomingMessege);
-                    }
+                    DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+                    dataOutputStream.writeUTF("ACK");
+                    dataOutputStream.flush();
+
+
+
+
+
 
                     clientSocket.close();
 
@@ -362,41 +369,48 @@ public class GroupMessengerActivity extends Activity {
         protected Void doInBackground(Messege... msgs) {
 
 
-
-
-
             for (int thisPort: REMOTE_PORT) {
 
                 try {
 
                     Messege msg = msgs[0].clone();
 
+                    // Create connection and set read timeout
+
                     Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                             thisPort);
 
-                    socket.setSoTimeout(800);
+                    socket.setSoTimeout(10000);
 
-
-//                    Socket socket = new Socket();
-//                    socket.connect(new InetSocketAddress(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),REMOTE_PORT[z]), 1000);
-
-
+                    // Send messege to target port
                     msg.setSource(MY_PORT);
                     String msgToSend = msg.createPacket(SEPARATOR);
 
 
                     DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
-
-                    dataOutputStream.writeBytes(msgToSend);
+                    dataOutputStream.writeUTF(msgToSend);
                     dataOutputStream.flush();
 
+
+                    //TODO: Listen for acknowledgement
+
+                    DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+
+                    String ackmsg = dataInputStream.readUTF();
+                    Log.d(TAG, ackmsg);
+
+                    dataInputStream.close();
+
+
+
+
                     socket.close();
-                    dataOutputStream.close();
+
 
 
 
                 } catch (SocketTimeoutException e){
-                    Log.e(TAG, "SocketTimeoutException!!!!!!");
+                    Log.e(TAG, "ClientTask SocketTimeoutException");
 
                 } catch (UnknownHostException e) {
                     Log.e(TAG, "ClientTask UnknownHostException");
@@ -422,30 +436,43 @@ public class GroupMessengerActivity extends Activity {
         protected Void doInBackground(Messege... msgs) {
 
 
-            Messege msg = null;
+
 
 
             try {
 
-                msg = msgs[0].clone();
+                Messege msg = msgs[0].clone();
 
-                //TODO: socket timeout exception, remove from proposalcounter(if exists), remove from remotehost[]
+                // Create connection and set read timeout
 
                 Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                         msg.getOrigin());
 
-                socket.setSoTimeout(800);
+                socket.setSoTimeout(10000);
 
+                // Send messege to target port
                 msg.setSource(MY_PORT);
                 String msgToSend = msg.createPacket(SEPARATOR);
 
-                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
-                dataOutputStream.writeBytes(msgToSend);
+                DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+                dataOutputStream.writeUTF(msgToSend);
                 dataOutputStream.flush();
 
+
+                //TODO: Listen for acknowledgement
+
+                DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+
+                String ackmsg = dataInputStream.readUTF();
+                Log.d(TAG, ackmsg);
+
+                dataInputStream.close();
+
+
+
+
                 socket.close();
-                dataOutputStream.close();
 
 
 
