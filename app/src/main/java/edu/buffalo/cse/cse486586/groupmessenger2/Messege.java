@@ -129,7 +129,6 @@ public class Messege implements Comparable<Messege>, Cloneable{
         if (o == null || getClass() != o.getClass()) return false;
         Messege messege = (Messege) o;
         return isDeliverable == messege.isDeliverable &&
-                source == messege.source &&
                 origin == messege.origin &&
                 originTimestamp == messege.originTimestamp &&
                 Objects.equals(content, messege.content);
