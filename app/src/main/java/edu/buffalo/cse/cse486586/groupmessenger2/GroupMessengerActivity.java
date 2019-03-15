@@ -52,6 +52,8 @@ public class GroupMessengerActivity extends Activity {
     private static final String KEY_FIELD = "key";
     private static final String VALUE_FIELD = "value";
     private static final String SEPARATOR = "##";
+    private static final String PING_VALUE = "ping!";
+    private static final int READ_TIMEOUT_RANGE = 1500;
 
     private static TreeSet<Integer> REMOTE_PORT = new TreeSet<Integer>();
     private static TreeSet<Integer> BANNED_PORT = new TreeSet<Integer>();
@@ -196,39 +198,48 @@ public class GroupMessengerActivity extends Activity {
                     String incomingMessege = dataInputStream.readUTF();
 
 
-                    Messege recievedMessege = new Messege(incomingMessege, SEPARATOR);
+
+                    // If it's reconfirmation ping!
+
+                    if(incomingMessege!=null && incomingMessege.equals(PING_VALUE)){
 
 
-
-                    // If no sequence, propose sequence number
-
-                    if(recievedMessege.getSequence() == -1) {
-
-                        // If NO sequence found, we need to send proposals to origin
-
-                        recievedMessege.setSequence(proposalSeqId.getAndIncrement());
-                        recievedMessege.setSource(MY_PORT);
-
-                        // Add this messege to Priority Queue
-                        messegeQueue.add(recievedMessege);
-
-                        Log.d(TAG,"Proposed** " + recievedMessege.toString());
+                        returnStandardAcknoldegement(clientSocket);
 
 
-                        DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-                        dataOutputStream.writeUTF(recievedMessege.createPacket(SEPARATOR));
-                        dataOutputStream.flush();
+                    }else  {
+
+                        Messege recievedMessege = new Messege(incomingMessege, SEPARATOR);
 
 
-                    } else{
+                        // If no sequence, propose sequence number
 
-                        publishProgress(recievedMessege);
+                        if(recievedMessege.getSequence() == -1) {
 
-                        DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-                        dataOutputStream.writeUTF("ACK");
-                        dataOutputStream.flush();
+                            // If NO sequence found, we need to send proposals to origin
+
+                            recievedMessege.setSequence(proposalSeqId.getAndIncrement());
+                            recievedMessege.setSource(MY_PORT);
+
+                            // Add this messege to Priority Queue
+                            messegeQueue.add(recievedMessege);
+
+                            Log.d(TAG,"Proposed** " + recievedMessege.toString());
 
 
+                            DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+                            dataOutputStream.writeUTF(recievedMessege.createPacket(SEPARATOR));
+                            dataOutputStream.flush();
+
+                            dataOutputStream.close();
+
+                        } else{
+
+                            publishProgress(recievedMessege);
+
+                            returnStandardAcknoldegement(clientSocket);
+
+                        }
                     }
 
 
@@ -278,6 +289,7 @@ public class GroupMessengerActivity extends Activity {
 
 
 
+
                 }
 
             } catch (CloneNotSupportedException e) {
@@ -312,7 +324,7 @@ public class GroupMessengerActivity extends Activity {
 
                     Messege msg = msgs[0].clone();
 
-                    Socket socket = connectionAndwriteMessege(thisPort, msg);
+                    Socket socket = connectAndwriteMessege(thisPort, msg);
                     readAckAndClose(socket);
 
                     socket.close();
@@ -336,10 +348,6 @@ public class GroupMessengerActivity extends Activity {
 
                 } catch (CloneNotSupportedException e){
                     Log.e(TAG, "ClientTask socket CloneNotSupportedException");
-                } finally {
-
-                    // check if ready to deliver
-
                 }
             }
 
@@ -352,16 +360,44 @@ public class GroupMessengerActivity extends Activity {
         }
     }
 
-    private Socket connectionAndwriteMessege(int thisPort, Messege msg) throws IOException {
+
+    private void returnStandardAcknoldegement(Socket clientSocket) throws IOException{
+
+        DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+        dataOutputStream.writeUTF("ACK");
+        dataOutputStream.flush();
+
+        dataOutputStream.close();
+
+    }
+
+    private Socket connectAndwriteMessege(int thisPort, Messege msg) throws IOException {
 
         Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                 thisPort);
 
-        socket.setSoTimeout(1000);
+        socket.setSoTimeout(READ_TIMEOUT_RANGE);
 
-        //TODO: removed my port setting
-        //msg.setSource(MY_PORT);
+
         String msgToSend = msg.createPacket(SEPARATOR);
+
+        DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+        dataOutputStream.writeUTF(msgToSend);
+        dataOutputStream.flush();
+
+        return socket;
+
+    }
+
+    private Socket connectAndwriteMessege(int thisPort, String msg) throws IOException {
+
+        Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
+                thisPort);
+
+        socket.setSoTimeout(READ_TIMEOUT_RANGE);
+
+
+        String msgToSend = msg;
 
         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
         dataOutputStream.writeUTF(msgToSend);
@@ -397,7 +433,7 @@ public class GroupMessengerActivity extends Activity {
             mp.put(repliedMsg.getSource(), repliedMsg);
             proposalCounter.put(repliedMsg.getOriginTimestamp(), mp);
 
-            
+
 
         }
 
@@ -480,7 +516,7 @@ public class GroupMessengerActivity extends Activity {
         while (!messegeQueue.isEmpty() ) {
 
 
-
+            Log.d(TAG,"QUEUED*** HEAD** " + messegeQueue.peek().toString());
 
             Messege peekedMessege = messegeQueue.peek();
 
@@ -516,12 +552,59 @@ public class GroupMessengerActivity extends Activity {
 
 
             } else{
-                //if head is not deliverable, exit
+
+                // if head is not deliverable check if that node is alive
+
+                new ReconfirmLife().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, String.valueOf(peekedMessege.getOrigin()));
+
+                //exit and try again later
                 break;
             }
         }
 
 
+    }
+
+
+
+    private class ReconfirmLife extends AsyncTask<String, Void, Void> {
+
+        @Override
+        protected Void doInBackground(String... ports) {
+
+            int thisPort = Integer.parseInt(ports[0]);
+
+
+
+                try {
+
+                    Socket socket = connectAndwriteMessege(thisPort, PING_VALUE);
+                    readAckAndClose(socket);
+
+                    socket.close();
+
+
+
+                } catch (SocketTimeoutException e){
+                    Log.e(TAG, "ClientTask SocketTimeoutException");
+                    REMOTE_PORT.remove(new Integer(thisPort));
+                    BANNED_PORT.add(new Integer(thisPort));
+
+                } catch (UnknownHostException e) {
+                    Log.e(TAG, "ClientTask UnknownHostException");
+                    REMOTE_PORT.remove(new Integer(thisPort));
+                    BANNED_PORT.add(new Integer(thisPort));
+
+                } catch (IOException e) {
+                    Log.e(TAG, "ClientTask socket IOException: "+thisPort);
+                    REMOTE_PORT.remove(new Integer(thisPort));
+                    BANNED_PORT.add(new Integer(thisPort));
+
+                }
+
+
+            return null;
+        }
     }
 
 
