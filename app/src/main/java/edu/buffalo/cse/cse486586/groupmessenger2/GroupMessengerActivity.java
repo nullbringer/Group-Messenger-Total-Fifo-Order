@@ -27,6 +27,7 @@ import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
@@ -268,17 +269,12 @@ public class GroupMessengerActivity extends Activity {
                     messegeQueue.add(messegeToAdd);
 
 
-
                     /* remove the old instance */
 
                     messegeToremove.setDeliverable(false);
                     messegeQueue.remove(messegeToremove);
 
                     Log.d(TAG,"QUEUED** " + messegeToAdd.toString());
-
-
-
-
 
 
 
@@ -348,6 +344,9 @@ public class GroupMessengerActivity extends Activity {
             }
 
 
+            makeDecisionOnSequence(msgs[0].getOriginTimestamp());
+
+
 
             return null;
         }
@@ -360,7 +359,8 @@ public class GroupMessengerActivity extends Activity {
 
         socket.setSoTimeout(1000);
 
-        msg.setSource(MY_PORT);
+        //TODO: removed my port setting
+        //msg.setSource(MY_PORT);
         String msgToSend = msg.createPacket(SEPARATOR);
 
         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
@@ -397,14 +397,7 @@ public class GroupMessengerActivity extends Activity {
             mp.put(repliedMsg.getSource(), repliedMsg);
             proposalCounter.put(repliedMsg.getOriginTimestamp(), mp);
 
-
-            makeDecisionOnSequence(repliedMsg.getOriginTimestamp());
-
-
-
-
-
-
+            
 
         }
 
@@ -436,7 +429,11 @@ public class GroupMessengerActivity extends Activity {
 
             try {
 
-                for(int port:REMOTE_PORT){
+
+                Iterator<Integer> value = REMOTE_PORT.iterator();
+                while(value.hasNext()){
+
+                    Integer port = value.next();
 
                     if(headCounter.get(port).getSequence()>=highestProposedSequence){
 
@@ -446,6 +443,8 @@ public class GroupMessengerActivity extends Activity {
                     }
 
                 }
+
+
             } catch (Exception e) {
                 isDeliverable = false;
             }
@@ -486,7 +485,7 @@ public class GroupMessengerActivity extends Activity {
             Messege peekedMessege = messegeQueue.peek();
 
             //remove head if the origin is failed node.
-            if(BANNED_PORT.contains(peekedMessege.getOrigin())){
+            if(BANNED_PORT.contains(peekedMessege.getOrigin()) && !peekedMessege.isDeliverable()){
                 messegeQueue.poll();
                 continue;
 
@@ -510,7 +509,7 @@ public class GroupMessengerActivity extends Activity {
                 String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
 
 
-                tv.append(Html.fromHtml(finalSeq+ "*"+topMessege.getSequence() +":"+ topMessege.getOrigin() +":" +": <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
+                tv.append(Html.fromHtml(finalSeq+ "*"+topMessege.getSequence() +":"+ topMessege.getSource() +":" +": <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
                 tv.append("\n");
 
 
