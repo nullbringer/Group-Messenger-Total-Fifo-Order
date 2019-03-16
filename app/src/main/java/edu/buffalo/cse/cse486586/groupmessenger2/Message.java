@@ -2,7 +2,7 @@ package edu.buffalo.cse.cse486586.groupmessenger2;
 
 import java.util.Objects;
 
-public class Messege implements Comparable<Messege>, Cloneable{
+public class Message implements Comparable<Message>, Cloneable{
 
     private int sequence;
     private String content;
@@ -11,7 +11,7 @@ public class Messege implements Comparable<Messege>, Cloneable{
     private int origin;
     private long originTimestamp;
 
-    public Messege(int sequence, String content, boolean isDeliverable, int source, int origin, long originTimestamp) {
+    public Message(int sequence, String content, boolean isDeliverable, int source, int origin, long originTimestamp) {
         this.sequence = sequence;
         this.content = content;
         this.isDeliverable = isDeliverable;
@@ -20,7 +20,7 @@ public class Messege implements Comparable<Messege>, Cloneable{
         this.originTimestamp = originTimestamp;
     }
 
-    public Messege(String packet, String separator) {
+    public Message(String packet, String separator) {
 
 
         String strReceived [] = packet.trim().split(separator);
@@ -89,7 +89,7 @@ public class Messege implements Comparable<Messege>, Cloneable{
     }
 
     @Override
-    public int compareTo(Messege another) {
+    public int compareTo(Message another) {
 
         int result = Integer.compare(this.sequence, another.sequence);
 
@@ -102,7 +102,7 @@ public class Messege implements Comparable<Messege>, Cloneable{
 
     @Override
     public String toString() {
-        return "Messege{" +
+        return "Message{" +
                 "sequence=" + sequence +
                 ", content='" + content + '\'' +
                 ", isDeliverable=" + isDeliverable +
@@ -127,16 +127,16 @@ public class Messege implements Comparable<Messege>, Cloneable{
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Messege messege = (Messege) o;
-        return isDeliverable == messege.isDeliverable &&
-                origin == messege.origin &&
-                originTimestamp == messege.originTimestamp &&
-                Objects.equals(content, messege.content);
+        Message message = (Message) o;
+        return isDeliverable == message.isDeliverable &&
+                origin == message.origin &&
+                originTimestamp == message.originTimestamp &&
+                Objects.equals(content, message.content);
     }
 
-    public Messege clone() throws CloneNotSupportedException
+    public Message clone() throws CloneNotSupportedException
     {
-        return (Messege) super.clone();
+        return (Message) super.clone();
     }
 
 

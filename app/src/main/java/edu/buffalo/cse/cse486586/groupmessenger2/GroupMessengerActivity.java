@@ -61,9 +61,9 @@ public class GroupMessengerActivity extends Activity {
     private static TreeSet<Integer> BANNED_PORT = new TreeSet<Integer>();
 
 
-    private static TreeMap<Long, HashMap<Integer,Messege>> proposalCounter = new TreeMap<Long, HashMap<Integer, Messege>>();
+    private static TreeMap<Long, HashMap<Integer, Message>> proposalCounter = new TreeMap<Long, HashMap<Integer, Message>>();
 
-    private Queue<Messege> messegeQueue = new PriorityQueue<Messege>();
+    private Queue<Message> messageQueue = new PriorityQueue<Message>();
 
     private static Integer MY_PORT;
     TextView tv;
@@ -120,14 +120,14 @@ public class GroupMessengerActivity extends Activity {
 
                     editText.setText("");
 
-                    /* Construct the Messege for first time */
+                    /* Construct the Message for first time */
 
-                    Messege messege = new Messege(-1, msg,false, MY_PORT, MY_PORT, System.currentTimeMillis());
+                    Message message = new Message(-1, msg,false, MY_PORT, MY_PORT, System.currentTimeMillis());
 
 
                     /* Ask for sequence proposal from the alive nodes in the network */
 
-                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, messege);
+                    new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, message);
 
                     Log.e(TAG,msg);
 
@@ -171,7 +171,7 @@ public class GroupMessengerActivity extends Activity {
         };
 
         handler.post(runnable);
-        
+
 
     }
 
@@ -183,7 +183,7 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
-    private class ServerTask extends AsyncTask<ServerSocket, Messege, Void> {
+    private class ServerTask extends AsyncTask<ServerSocket, Message, Void> {
 
         @Override
         protected Void doInBackground(ServerSocket... sockets) {
@@ -214,29 +214,29 @@ public class GroupMessengerActivity extends Activity {
 
                     } else  {
 
-                        Messege recievedMessege = new Messege(incomingMessege, SEPARATOR);
+                        Message receivedMessage = new Message(incomingMessege, SEPARATOR);
 
 
-                        if(recievedMessege.getSequence() == -1) {
+                        if(receivedMessage.getSequence() == -1) {
 
 
                             /* If NO sequence found, we need to send proposals
                              * to the origin node
                              * */
 
-                            recievedMessege.setSequence(proposalSeqId.getAndIncrement());
-                            recievedMessege.setSource(MY_PORT);
+                            receivedMessage.setSequence(proposalSeqId.getAndIncrement());
+                            receivedMessage.setSource(MY_PORT);
 
-                            /* Add messege with proposed sequence to Priority Queue */
+                            /* Add message with proposed sequence to Priority Queue */
 
-                            messegeQueue.add(recievedMessege);
+                            messageQueue.add(receivedMessage);
 
-                            Log.d(TAG,"Proposed** " + recievedMessege.toString());
+                            Log.d(TAG,"Proposed** " + receivedMessage.toString());
 
                             /* Send back the proposal through channel as Ack */
 
                             DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-                            dataOutputStream.writeUTF(recievedMessege.createPacket(SEPARATOR));
+                            dataOutputStream.writeUTF(receivedMessage.createPacket(SEPARATOR));
                             dataOutputStream.flush();
 
                             dataOutputStream.close();
@@ -247,7 +247,7 @@ public class GroupMessengerActivity extends Activity {
                             * Update the delivery queue with the decision
                             * */
 
-                            publishProgress(recievedMessege);
+                            publishProgress(receivedMessage);
 
                             /* Return standard Ack */
                             returnStandardAcknoldegement(clientSocket);
@@ -267,34 +267,34 @@ public class GroupMessengerActivity extends Activity {
 
         }
 
-        protected void onProgressUpdate(Messege...msgs) {
+        protected void onProgressUpdate(Message...msgs) {
 
 
             try {
 
-                Messege messegeToAdd = msgs[0].clone();
-                Messege messegeToremove = msgs[0].clone();
+                Message messageToAdd = msgs[0].clone();
+                Message messageToRemove = msgs[0].clone();
 
 
-                if(messegeToAdd.isDeliverable()){
+                if(messageToAdd.isDeliverable()){
 
                     /* Update proposal Sequence larger than all observed agreed priorities */
 
-                    if(messegeToAdd.getSequence()>=proposalSeqId.get()){
-                        proposalSeqId.set(messegeToAdd.getSequence() + 1);
+                    if(messageToAdd.getSequence()>=proposalSeqId.get()){
+                        proposalSeqId.set(messageToAdd.getSequence() + 1);
                     }
 
 
                     /* Add the ready messege to the queue for delivery */
-                    messegeQueue.add(messegeToAdd);
+                    messageQueue.add(messageToAdd);
 
 
                     /* remove the old instance from queue */
 
-                    messegeToremove.setDeliverable(false);
-                    messegeQueue.remove(messegeToremove);
+                    messageToRemove.setDeliverable(false);
+                    messageQueue.remove(messageToRemove);
 
-                    Log.d(TAG,"QUEUED** " + messegeToAdd.toString());
+                    Log.d(TAG,"QUEUED** " + messageToAdd.toString());
 
 
                 }
@@ -309,10 +309,10 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
-    private class ClientTask extends AsyncTask<Messege, Void, Void> {
+    private class ClientTask extends AsyncTask<Message, Void, Void> {
 
         @Override
-        protected Void doInBackground(Messege... msgs) {
+        protected Void doInBackground(Message... msgs) {
 
 
             Set<Integer> portList = new HashSet<Integer>();
@@ -327,9 +327,9 @@ public class GroupMessengerActivity extends Activity {
 
                 try {
 
-                    Messege msg = msgs[0].clone();
+                    Message msg = msgs[0].clone();
 
-                    Socket socket = connectAndwriteMessege(thisPort, msg);
+                    Socket socket = connectAndWriteMessege(thisPort, msg);
                     readAckAndClose(socket);
 
                     socket.close();
@@ -379,10 +379,10 @@ public class GroupMessengerActivity extends Activity {
     }
 
     /*
-    * Establish connecton to another node and write send a Messege Object
+    * Establish connecton to another node and write send a Message Object
     * */
 
-    private Socket connectAndwriteMessege(int thisPort, Messege msg) throws IOException {
+    private Socket connectAndWriteMessege(int thisPort, Message msg) throws IOException {
 
         Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                 thisPort);
@@ -404,7 +404,7 @@ public class GroupMessengerActivity extends Activity {
      * Establish connecton to another node and write send a String
      * */
 
-    private Socket connectAndwriteMessege(int thisPort, String msg) throws IOException {
+    private Socket connectAndWriteMessege(int thisPort, String msg) throws IOException {
 
         Socket socket = new Socket(InetAddress.getByAddress(new byte[]{10, 0, 2, 2}),
                 thisPort);
@@ -441,17 +441,17 @@ public class GroupMessengerActivity extends Activity {
         } else {
 
             /*
-            * Recieved proposals!
+            * Received proposals!
             * Store it in buffer to evaluate later
             * */
 
-            Messege repliedMsg = new Messege(reply, SEPARATOR);
+            Message repliedMsg = new Message(reply, SEPARATOR);
 
 
-            HashMap<Integer, Messege> mp = proposalCounter.get(repliedMsg.getOriginTimestamp());
+            HashMap<Integer, Message> mp = proposalCounter.get(repliedMsg.getOriginTimestamp());
 
             if(mp == null){
-                mp = new HashMap<Integer, Messege>();
+                mp = new HashMap<Integer, Message>();
             }
 
             mp.put(repliedMsg.getSource(), repliedMsg);
@@ -472,7 +472,7 @@ public class GroupMessengerActivity extends Activity {
     private void makeDecisionOnSequence(long originTimestamp){
 
 
-        HashMap<Integer,Messege> headCounter = proposalCounter.get(originTimestamp);
+        HashMap<Integer, Message> headCounter = proposalCounter.get(originTimestamp);
 
 
         if(headCounter!= null && headCounter.size() >= REMOTE_PORT.size()){
@@ -482,7 +482,7 @@ public class GroupMessengerActivity extends Activity {
 
             int highestProposedSequence = 0;
 
-            Messege decision =null;
+            Message decision =null;
 
             boolean isDeliverable = true;
 
@@ -539,46 +539,46 @@ public class GroupMessengerActivity extends Activity {
     private void makeDelivery(){
 
 
-        while (!messegeQueue.isEmpty() ) {
+        while (!messageQueue.isEmpty() ) {
 
 
-            Messege peekedMessege = messegeQueue.peek();
+            Message peekedMessage = messageQueue.peek();
 
 
 
-            if(BANNED_PORT.contains(peekedMessege.getOrigin()) && !peekedMessege.isDeliverable()){
+            if(BANNED_PORT.contains(peekedMessage.getOrigin()) && !peekedMessage.isDeliverable()){
 
                 /*
                  * If non-deliverable head is from a dead node, remove them
                  */
 
-                messegeQueue.poll();
+                messageQueue.poll();
                 continue;
 
             }
 
-            if(peekedMessege.isDeliverable()){
+            if(peekedMessage.isDeliverable()){
 
                 /* If the head is ready for delivery,
                 * Store it and show it to user
                 * */
 
-                Messege topMessege =  messegeQueue.poll();
+                Message topMessage =  messageQueue.poll();
 
                 int finalSeq = dbSequence.getAndIncrement();
 
                 ContentValues mContentValues = new ContentValues();
 
                 mContentValues.put(KEY_FIELD, finalSeq);
-                mContentValues.put(VALUE_FIELD, topMessege.getContent());
+                mContentValues.put(VALUE_FIELD, topMessage.getContent());
 
                 getContentResolver().insert(mUri, mContentValues);
 
 
-                String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+topMessege.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
+                String colorKey = (String) getResources().getText(getResources().getIdentifier("c_"+ topMessage.getOrigin(), "string", "edu.buffalo.cse.cse486586.groupmessenger2"));
 
 
-                tv.append(Html.fromHtml(finalSeq+ "*"+topMessege.getSequence() +":"+ topMessege.getSource() +":" +": <font color='"+colorKey+"'>"+topMessege.getContent()+ "</color>"));
+                tv.append(Html.fromHtml(finalSeq+ "*"+ topMessage.getSequence() +":"+ topMessage.getSource() +":" +": <font color='"+colorKey+"'>"+ topMessage.getContent()+ "</color>"));
                 tv.append("\n");
 
 
@@ -588,7 +588,7 @@ public class GroupMessengerActivity extends Activity {
 
                 /* If head is not deliverable, ping the origin node to check if it is still alive */
 
-                new ReconfirmLife().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, String.valueOf(peekedMessege.getOrigin()));
+                new ReconfirmLife().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, String.valueOf(peekedMessage.getOrigin()));
 
                 // exit and try again later
                 break;
@@ -612,7 +612,7 @@ public class GroupMessengerActivity extends Activity {
 
                 try {
 
-                    Socket socket = connectAndwriteMessege(thisPort, PING_VALUE);
+                    Socket socket = connectAndWriteMessege(thisPort, PING_VALUE);
                     readAckAndClose(socket);
 
                     socket.close();
