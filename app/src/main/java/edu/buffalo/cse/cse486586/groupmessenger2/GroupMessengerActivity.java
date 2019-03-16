@@ -45,6 +45,8 @@ public class GroupMessengerActivity extends Activity {
 
     private static final String TAG = GroupMessengerActivity.class.getName();
     static final int SERVER_PORT = 10000;
+    private static final int READ_TIMEOUT_RANGE = 1500;
+    private static final int DELIVERY_INTERVAL = 4500;
 
     private static AtomicInteger proposalSeqId = new AtomicInteger(0);
     private static AtomicInteger dbSequence = new AtomicInteger(0);
@@ -54,13 +56,13 @@ public class GroupMessengerActivity extends Activity {
     private static final String SEPARATOR = "##";
     private static final String PING_VALUE = "ping!";
     private static final String ACK_VALUE = "ACK";
-    private static final int READ_TIMEOUT_RANGE = 1500;
 
     private static TreeSet<Integer> REMOTE_PORT = new TreeSet<Integer>();
     private static TreeSet<Integer> BANNED_PORT = new TreeSet<Integer>();
 
 
     private static TreeMap<Long, HashMap<Integer,Messege>> proposalCounter = new TreeMap<Long, HashMap<Integer, Messege>>();
+
     private Queue<Messege> messegeQueue = new PriorityQueue<Messege>();
 
     private static Integer MY_PORT;
@@ -115,13 +117,15 @@ public class GroupMessengerActivity extends Activity {
 
                 if(msg!= null && msg.length()>0){
 
-//                    msg = msg  + "\n";
 
-                    editText.setText(""); // This is one way to reset the input box.
+                    editText.setText("");
 
+                    /* Construct the Messege for first time */
 
                     Messege messege = new Messege(-1, msg,false, MY_PORT, MY_PORT, System.currentTimeMillis());
 
+
+                    /* Ask for sequence proposal from the alive nodes in the network */
 
                     new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, messege);
 
@@ -138,20 +142,20 @@ public class GroupMessengerActivity extends Activity {
 
 
 
+        /*
+        * Clearing the delivery queue in defined interval
+        * https://stackoverflow.com/a/10207775
+        *
+        * */
 
-
-//        https://stackoverflow.com/a/10207775
 
         final Handler handler = new Handler();
-
 
         Runnable runnable = new Runnable() {
 
             @Override
             public void run() {
                 try{
-
-                    //TODO: implement without runnable
 
                     makeDelivery();
 
@@ -161,14 +165,13 @@ public class GroupMessengerActivity extends Activity {
                     Log.e(TAG,"Exception in runnable!!"+e);
                 }
                 finally{
-                    handler.postDelayed(this, 4500);
+                    handler.postDelayed(this, DELIVERY_INTERVAL);
                 }
             }
         };
 
         handler.post(runnable);
-
-
+        
 
     }
 
@@ -200,33 +203,37 @@ public class GroupMessengerActivity extends Activity {
 
 
 
-                    // If it's reconfirmation ping!
+
 
                     if(incomingMessege!=null && incomingMessege.equals(PING_VALUE)){
 
+                        /* If it's a ping! to cross-check life, return AcK */
 
                         returnStandardAcknoldegement(clientSocket);
 
 
-                    }else  {
+                    } else  {
 
                         Messege recievedMessege = new Messege(incomingMessege, SEPARATOR);
 
 
-                        // If no sequence, propose sequence number
-
                         if(recievedMessege.getSequence() == -1) {
 
-                            // If NO sequence found, we need to send proposals to origin
+
+                            /* If NO sequence found, we need to send proposals
+                             * to the origin node
+                             * */
 
                             recievedMessege.setSequence(proposalSeqId.getAndIncrement());
                             recievedMessege.setSource(MY_PORT);
 
-                            // Add this messege to Priority Queue
+                            /* Add messege with proposed sequence to Priority Queue */
+
                             messegeQueue.add(recievedMessege);
 
                             Log.d(TAG,"Proposed** " + recievedMessege.toString());
 
+                            /* Send back the proposal through channel as Ack */
 
                             DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
                             dataOutputStream.writeUTF(recievedMessege.createPacket(SEPARATOR));
@@ -236,8 +243,13 @@ public class GroupMessengerActivity extends Activity {
 
                         } else{
 
+                            /* Decision for a sequence found
+                            * Update the delivery queue with the decision
+                            * */
+
                             publishProgress(recievedMessege);
 
+                            /* Return standard Ack */
                             returnStandardAcknoldegement(clientSocket);
 
                         }
@@ -245,7 +257,6 @@ public class GroupMessengerActivity extends Activity {
 
 
                     clientSocket.close();
-
 
 
                 } catch (IOException e) {
@@ -257,9 +268,6 @@ public class GroupMessengerActivity extends Activity {
         }
 
         protected void onProgressUpdate(Messege...msgs) {
-            /*
-             * The following code displays what is received in doInBackground().
-             */
 
 
             try {
@@ -270,18 +278,18 @@ public class GroupMessengerActivity extends Activity {
 
                 if(messegeToAdd.isDeliverable()){
 
-                    // update proposal sequence if less
+                    /* Update proposal Sequence larger than all observed agreed priorities */
 
                     if(messegeToAdd.getSequence()>=proposalSeqId.get()){
                         proposalSeqId.set(messegeToAdd.getSequence() + 1);
                     }
 
 
-                    // Add this messege to Priority Queue
+                    /* Add the ready messege to the queue for delivery */
                     messegeQueue.add(messegeToAdd);
 
 
-                    /* remove the old instance */
+                    /* remove the old instance from queue */
 
                     messegeToremove.setDeliverable(false);
                     messegeQueue.remove(messegeToremove);
@@ -289,18 +297,11 @@ public class GroupMessengerActivity extends Activity {
                     Log.d(TAG,"QUEUED** " + messegeToAdd.toString());
 
 
-
-
                 }
 
             } catch (CloneNotSupportedException e) {
                 Log.d(TAG,"CloneNotSupportedException in queueing!!");
             }
-
-
-            //makeDelivery();
-
-
 
 
             return;
@@ -317,6 +318,9 @@ public class GroupMessengerActivity extends Activity {
             Set<Integer> portList = new HashSet<Integer>();
             portList.addAll(REMOTE_PORT);
 
+            /*
+            * Send messeges to alive nodes one by one
+            * */
 
 
             for (int thisPort: portList) {
@@ -329,7 +333,6 @@ public class GroupMessengerActivity extends Activity {
                     readAckAndClose(socket);
 
                     socket.close();
-
 
 
                 } catch (SocketTimeoutException e){
@@ -353,6 +356,8 @@ public class GroupMessengerActivity extends Activity {
             }
 
 
+            /* make a decision from proposals collected from alive nodes */
+
             makeDecisionOnSequence(msgs[0].getOriginTimestamp());
 
 
@@ -361,6 +366,7 @@ public class GroupMessengerActivity extends Activity {
         }
     }
 
+    /* Writes standard ACK in open channel */
 
     private void returnStandardAcknoldegement(Socket clientSocket) throws IOException{
 
@@ -371,6 +377,10 @@ public class GroupMessengerActivity extends Activity {
         dataOutputStream.close();
 
     }
+
+    /*
+    * Establish connecton to another node and write send a Messege Object
+    * */
 
     private Socket connectAndwriteMessege(int thisPort, Messege msg) throws IOException {
 
@@ -389,6 +399,10 @@ public class GroupMessengerActivity extends Activity {
         return socket;
 
     }
+
+    /*
+     * Establish connecton to another node and write send a String
+     * */
 
     private Socket connectAndwriteMessege(int thisPort, String msg) throws IOException {
 
@@ -409,6 +423,11 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
+    /*
+     * Wait for Ack from other nodes!
+     * If recieved proposals buffer them for later evaluation
+     * */
+
     private void readAckAndClose(Socket socket) throws IOException{
 
         DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
@@ -417,10 +436,14 @@ public class GroupMessengerActivity extends Activity {
 
         if(reply.equals(ACK_VALUE)){
 
-            // all good
+            /* Standard ACK recieved. */
 
         } else {
-            // recieved proposal
+
+            /*
+            * Recieved proposals!
+            * Store it in buffer to evaluate later
+            * */
 
             Messege repliedMsg = new Messege(reply, SEPARATOR);
 
@@ -442,10 +465,11 @@ public class GroupMessengerActivity extends Activity {
 
     }
 
+    /*
+     * Evaluate all the proposals and make a decision on sequence number for a messege
+     * */
+
     private void makeDecisionOnSequence(long originTimestamp){
-
-
-        // add proposal checking
 
 
         HashMap<Integer,Messege> headCounter = proposalCounter.get(originTimestamp);
@@ -454,9 +478,7 @@ public class GroupMessengerActivity extends Activity {
         if(headCounter!= null && headCounter.size() >= REMOTE_PORT.size()){
 
 
-
-
-            //choose highest and let others know to make it depliverable.
+            /* Choose the highest sequence number from the buffer */
 
             int highestProposedSequence = 0;
 
@@ -466,6 +488,10 @@ public class GroupMessengerActivity extends Activity {
 
             try {
 
+                /* Make sure only proposals from alive nodes are evaluated.
+                * Evaluated in sorted manner, node with highest address (port)
+                * should get priority
+                * */
 
                 Iterator<Integer> value = REMOTE_PORT.iterator();
                 while(value.hasNext()){
@@ -492,12 +518,7 @@ public class GroupMessengerActivity extends Activity {
 
                 Log.d(TAG,"AGREED And TRANSMITTED:: " + decision.toString());
 
-//                                try {
-//                    Thread.sleep(1000);
-//
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
+                /* broadcast decision to all the nodes */
 
                 new ClientTask().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, decision);
 
@@ -511,18 +532,26 @@ public class GroupMessengerActivity extends Activity {
     }
 
 
+    /*
+     * Periodically checks the delivery queue for deliverable messeges
+     * */
+
     private void makeDelivery(){
 
 
         while (!messegeQueue.isEmpty() ) {
 
 
-            //Log.d(TAG,"QUEUED*** HEAD** " + messegeQueue.peek().toString());
-
             Messege peekedMessege = messegeQueue.peek();
 
-            //remove head if the origin is failed node.
+
+
             if(BANNED_PORT.contains(peekedMessege.getOrigin()) && !peekedMessege.isDeliverable()){
+
+                /*
+                 * If non-deliverable head is from a dead node, remove them
+                 */
+
                 messegeQueue.poll();
                 continue;
 
@@ -530,6 +559,9 @@ public class GroupMessengerActivity extends Activity {
 
             if(peekedMessege.isDeliverable()){
 
+                /* If the head is ready for delivery,
+                * Store it and show it to user
+                * */
 
                 Messege topMessege =  messegeQueue.poll();
 
@@ -554,11 +586,11 @@ public class GroupMessengerActivity extends Activity {
 
             } else{
 
-                // if head is not deliverable check if that node is alive
+                /* If head is not deliverable, ping the origin node to check if it is still alive */
 
                 new ReconfirmLife().executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, String.valueOf(peekedMessege.getOrigin()));
 
-                //exit and try again later
+                // exit and try again later
                 break;
             }
         }
@@ -566,7 +598,10 @@ public class GroupMessengerActivity extends Activity {
 
     }
 
-
+    /*
+    * Sends a string to a destination.
+    * Used to verify if the target node is still alive.
+    * */
 
     private class ReconfirmLife extends AsyncTask<String, Void, Void> {
 
@@ -575,15 +610,12 @@ public class GroupMessengerActivity extends Activity {
 
             int thisPort = Integer.parseInt(ports[0]);
 
-
-
                 try {
 
                     Socket socket = connectAndwriteMessege(thisPort, PING_VALUE);
                     readAckAndClose(socket);
 
                     socket.close();
-
 
 
                 } catch (SocketTimeoutException e){
