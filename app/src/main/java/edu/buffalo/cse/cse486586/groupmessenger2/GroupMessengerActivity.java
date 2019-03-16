@@ -53,6 +53,7 @@ public class GroupMessengerActivity extends Activity {
     private static final String VALUE_FIELD = "value";
     private static final String SEPARATOR = "##";
     private static final String PING_VALUE = "ping!";
+    private static final String ACK_VALUE = "ACK";
     private static final int READ_TIMEOUT_RANGE = 1500;
 
     private static TreeSet<Integer> REMOTE_PORT = new TreeSet<Integer>();
@@ -364,7 +365,7 @@ public class GroupMessengerActivity extends Activity {
     private void returnStandardAcknoldegement(Socket clientSocket) throws IOException{
 
         DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-        dataOutputStream.writeUTF("ACK");
+        dataOutputStream.writeUTF(ACK_VALUE);
         dataOutputStream.flush();
 
         dataOutputStream.close();
@@ -414,7 +415,7 @@ public class GroupMessengerActivity extends Activity {
 
         String reply = dataInputStream.readUTF();
 
-        if(reply.equals("ACK")){
+        if(reply.equals(ACK_VALUE)){
 
             // all good
 
@@ -516,7 +517,7 @@ public class GroupMessengerActivity extends Activity {
         while (!messegeQueue.isEmpty() ) {
 
 
-            Log.d(TAG,"QUEUED*** HEAD** " + messegeQueue.peek().toString());
+            //Log.d(TAG,"QUEUED*** HEAD** " + messegeQueue.peek().toString());
 
             Messege peekedMessege = messegeQueue.peek();
 
